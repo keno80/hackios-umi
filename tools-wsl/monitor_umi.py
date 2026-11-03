@@ -7,7 +7,7 @@
     TASK1..TASK5（格式 "状态|文字"，状态 run/wait/gate/done）
     NOTE1..NOTE3 ARTIFACT1..ARTIFACT3
 """
-import atexit, os, re, shutil, signal, subprocess, sys, time, unicodedata
+import atexit, glob, os, re, shutil, signal, subprocess, sys, time, unicodedata
 
 W = "/home/unixnu/code/umi-work-pin"
 STATE = os.environ.get("UMI_STATE", f"{W}/out/tui-state")
@@ -17,6 +17,8 @@ KERNEL = f"{W}/out/umi-xnu/umi/kernel/source-kernel.macho"
 EDK2 = "/home/unixnu/code/Mu_Basecore"
 UEFI = "/home/unixnu/code/uefi-umi-b"
 PATCHES = ["Gic-Spurious", "Mac-Bash3", "Dxe-Trace", "Display-Services-Trace"]
+UNI_LOGS = "/home/unixnu/code/UniXNU-main/out/unixnu-logs"
+DEV_LOGS = "/mnt/e/Code/HackIos/out"
 
 C = dict(dim="\033[90m", fg="\033[37m", acc="\033[32m", warn="\033[33m",
          err="\033[31m", cyan="\033[36m", head="\033[46;30m", reset="\033[0m",
@@ -272,6 +274,24 @@ def lanes(st):
     return rows
 
 
+def newest_dev_log():
+    """没有 WSL 任务在跑时，面板也要指着「最后一件发生的事」的日志。
+
+    上机引导（fastboot boot）的日志在 Windows 侧，构建/QEMU 的在 unixnu-logs；
+    两边都进来比 mtime，否则空转时面板会停在几小时前的旧日志上，看着像死了。
+    """
+    best, best_m = "", 0.0
+    for pat in (f"{UNI_LOGS}/*.log", f"{DEV_LOGS}/*.log"):
+        for p in glob.glob(pat):
+            try:
+                m = os.path.getmtime(p)
+            except OSError:
+                continue
+            if m > best_m:
+                best, best_m = p, m
+    return best
+
+
 def log_target(st):
     """状态文件的 LOG 若是「步进展器」，跟着它最后一行指到的真实步日志走。
 
@@ -279,19 +299,27 @@ def log_target(st):
     不跟随的话面板会整段干等，看起来像卡死。
     """
     path = st.get("LOG", "")
-    if not path or not os.path.exists(path):
-        return path
-    try:
-        with open(path, "rb") as f:
-            f.seek(max(0, os.path.getsize(path) - 8192))
-            tail = f.read().decode("utf-8", "replace").splitlines()
-    except OSError:
-        return path
-    for ln in reversed(tail[-40:]):
-        m = re.fullmatch(r"[A-Za-z0-9_.-]+: (/\S+\.log)", ln.strip())
-        if m and os.path.exists(m.group(1)):
-            return m.group(1)
-    return path
+    chosen = path
+    if path and os.path.exists(path):
+        try:
+            with open(path, "rb") as f:
+                f.seek(max(0, os.path.getsize(path) - 8192))
+                tail = f.read().decode("utf-8", "replace").splitlines()
+        except OSError:
+            tail = []
+        for ln in reversed(tail[-40:]):
+            m = re.fullmatch(r"[A-Za-z0-9_.-]+: (/\S+\.log)", ln.strip())
+            if m and os.path.exists(m.group(1)):
+                chosen = m.group(1)
+                break
+    alt = newest_dev_log()
+    if alt:
+        try:
+            if not os.path.exists(chosen) or os.path.getmtime(alt) > os.path.getmtime(chosen):
+                return alt
+        except OSError:
+            pass
+    return chosen
 
 
 def log_tail(st, n, err_only=False):
