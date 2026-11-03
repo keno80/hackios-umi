@@ -62,13 +62,25 @@ umi_scr_row_bg_tail(void)
 	}
 }
 
+/*
+ * Scrolls the text band up by one line. Deliberately a 32-bit word loop rather
+ * than bcopy: the frame is only 4-byte aligned, and libc memmove's ldp fast path
+ * takes an alignment fault on real silicon (TCG does not check, so QEMU misses it).
+ */
 static void
 umi_scr_scroll(void)
 {
-	unsigned long umi_band = (unsigned long) ISO_CHAR_HEIGHT * umi_scr_scale * umi_scr_row_bytes;
+	uint32_t *umi_dst = (uint32_t *)(umi_scr_fb +
+	    (uintptr_t) umi_scr_y0 * umi_scr_row_bytes);
+	unsigned long umi_line_words = (unsigned long) ISO_CHAR_HEIGHT * umi_scr_scale *
+	    (umi_scr_row_bytes / sizeof(uint32_t));
+	uint32_t *umi_src = umi_dst + umi_line_words;
+	unsigned long umi_words = umi_line_words * (umi_scr_rows - 1);
 
-	bcopy((void *)(umi_scr_fb + umi_scr_y0 + umi_band), (void *)(umi_scr_fb + umi_scr_y0),
-	    (size_t)(umi_band * (umi_scr_rows - 1)));
+	for (unsigned long umi_index = 0; umi_index < umi_words; umi_index++) {
+		umi_dst[umi_index] = umi_src[umi_index];
+	}
+
 	umi_scr_cy = umi_scr_rows - 1;
 	umi_scr_scrolls++;
 	umi_scr_row_bg(umi_scr_cy);
