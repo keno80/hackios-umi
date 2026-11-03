@@ -51,6 +51,7 @@ def main():
 
     # 平台种子：本机唯一、可复现，取自本机 running.dtb 摘要前 8 字节
     seed = dtb_sha[:16]
+    mockfs = "--mockfs-ramdisk" in sys.argv
 
     adt = OUT / "stage/Payloads/kernel.macho.adt"
     adt.parent.mkdir(parents=True, exist_ok=True)
@@ -63,8 +64,10 @@ def main():
         "--cpu-regs", "0,0x100,0x200,0x300,0x400,0x500,0x600,0x700",
         "--psci-method", "smc",
         "--unique-chip-id", seed,
+        *(["--data-ramdisk"] if mockfs else []),
     ]
-    print("dram =", hex(DRAM), f"({DRAM / 2**30:.2f} GiB)  seed = 0x{seed}")
+    print("dram =", hex(DRAM), f"({DRAM / 2**30:.2f} GiB)  seed = 0x{seed}",
+          "RAMDisk 占位" if mockfs else "无 RAMDisk 占位")
     result = subprocess.run(cmd, cwd=SANDBOX, capture_output=True, text=True)
     print("rc =", result.returncode)
     print(result.stdout.strip())
@@ -79,6 +82,7 @@ def main():
     print(json.dumps({k: report.get(k) for k in keep}, indent=2)[:1200])
     (OUT / "adt-run.json").write_text(json.dumps({
         "command": cmd, "seed_sha_source": dtb_sha, "dram_size": hex(DRAM),
+        "mockfs_ramdisk": mockfs,
         "banks": [[hex(b), hex(s)] for b, s in BANKS],
         "adt": str(adt), "report": report,
     }, indent=2) + "\n")

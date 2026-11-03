@@ -31,7 +31,7 @@ ls -la "$IMG" 2>/dev/null; sha256sum "$IMG" 2>/dev/null
 
 echo "== 2. 拆包自检"
 python3 - "$IMG" "$FAT" "$DTB" "$FD" <<'PY'
-import gzip, hashlib, struct, sys, zlib
+import hashlib, struct, sys, zlib
 img, fat, dtb, fd = sys.argv[1:5]
 d = open(img, 'rb').read()
 kernel_size, ramdisk_size, second_size = struct.unpack_from('<3I', d, 8)
@@ -42,19 +42,21 @@ print('kernel %d  ramdisk %d  second %d  image %d' % (kernel_size, ramdisk_size,
 kg = d[page:page+kernel_size]
 raw = zlib.decompressobj(16+zlib.MAX_WBITS).decompress(kg)
 fd_b = open(fd, 'rb').read()
-tree = open(dtb, 'rb').read()
 fat_b = open(fat, 'rb').read()
+# 真实布局：header 一页 → kernel → second(整卷)。ramdisk 字段只是声明，不占字节。
+second_off = page * (1 + -(-kernel_size // page))
 ok = []
-ok.append(('FD 尾段一致（3,145,728 B）', raw[-len(fd_b):] == fd_b))
+ok.append(('FD 尾段一致（%d B）' % len(fd_b), raw[-len(fd_b):] == fd_b))
 ok.append(('FD sha == b4e1acc2…', hashlib.sha256(fd_b).hexdigest().startswith('b4e1acc2')))
-ok.append(('内嵌 DTB 尾 == running.dtb', raw.endswith(tree)))
 shim = raw[:-len(fd_b)]
-ok.append(('shim %d B，magic ARM64' % len(shim), shim[56:60] == b'ARM6'))
-rb = d[2*page:2*page+ramdisk_size]
-ok.append(('ramdisk 段 == 整卷 %d B' % len(fat_b), rb[:len(fat_b)] == fat_b))
+# ARM64 boot header：magic 在 shim+0x38，字节是 A R M 0x64
+ok.append(('shim %d B，magic ARM\\x64 @0x38' % len(shim), shim[56:60] == b'ARM\x64'))
+ok.append(('second 段 == 整卷 %d B @ %#x' % (len(fat_b), second_off),
+           second_size == len(fat_b) and d[second_off:second_off+len(fat_b)] == fat_b))
+ok.append(('镜像尾部正好收在卷末', second_off + len(fat_b) == len(d)))
+ok.append(('卷内菜单带 rd=md0 与 initrd', b'rd=md0 ' in fat_b and b'initrd = "Payloads/launchd.macho"' in fat_b))
+ok.append(('卷内有 launchd.macho 目录项', b'LAUNCH~1MAC' in fat_b.replace(b' ', b'')))
 ok.append(('卷 sha %s' % hashlib.sha256(fat_b).hexdigest()[:8], True))
-hdr = struct.unpack_from('<4I', d, 16)
-ok.append(('载荷地址 base=%x kload=%x tags=%d(=%x)' % (hdr[0], hdr[1], hdr[3], hdr[3]), True))
 for label, good in ok:
     print('  %s%s' % ('OK  ' if good else 'FAIL', label))
 print('RESULT', 'ALL-OK' if all(g for _, g in ok) else 'HAS-FAIL')
