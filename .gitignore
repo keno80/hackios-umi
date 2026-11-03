@@ -1,0 +1,19 @@
+# 上游与第三方源码树：各自带 .git，不并入本仓
+/UniXNU/
+/UniXNU-main/
+/UniXNU-sheng/
+/UniXNU-umi/
+/uefi-umi/
+
+# 调试日志与取证线索，一律不入库
+/out/
+/diaimg/
+/phone-capture/
+/phone-capture.7z
+/boot.img
+*.log
+*.ppm
+*.img
+__pycache__/
+*.pyc
+/E:CodeHackIosoutboolchk.txt
