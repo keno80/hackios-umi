@@ -275,12 +275,6 @@ button.danger{color:var(--err);border-color:#4b1c1c}
 </style></head><body>
 <header>
   <b>UniXNU · umi</b>
-  <span class="chip" id="phase">阶段 —</span>
-  <span class="chip" id="run">run —</span>
-  <span class="chip" id="tool"></span>
-  <span class="chip" id="elapsed">elapsed —</span>
-  <span class="chip" id="idle">静止 —</span>
-  <span class="chip" id="res">WSL2 —</span>
   <span class="chip" id="clock">—</span>
 </header>
 <div class="grid">
@@ -329,16 +323,6 @@ async function tick(){
   let d;
   try{d=await (await fetch(`/api/state?err=${err?1:0}&lines=${full?400:60}`)).json(); fails=0;}
   catch(e){fails++; $("log").textContent="取数失败："+e+"（WSL 或已休眠，重试中）"; return;}
-  const PH={build:"build firmware",qemu:"QEMU 内核",idle:"空闲","qemu-done":"QEMU 已结束"};
-  $("phase").textContent="阶段 "+(PH[d.phase]||d.phase);
-  $("phase").className="chip "+(d.alive?"on":"off");
-  $("run").textContent="run "+d.run;
-  $("tool").textContent=d.tool||"";
-  $("elapsed").textContent=d.elapsed==null?"elapsed —":"elapsed "+hms(d.elapsed);
-  const id=d.idle||{};
-  $("idle").textContent=id.text||"静止 —";
-  $("idle").className="chip"+(id.level==="on"?" on":id.level==="warn"?" stale":"");
-  $("res").textContent=`CPU ${d.cpu}%  MEM ${d.mem_used}/${d.mem_total}G  LOAD ${d.loadavg[0]}`;
   $("clock").textContent=d.now+(fails?`  ×${fails}`:"");
   $("clock").className="chip"+(fails?" stale":"");
   $("ncpu").textContent=d.ncpu+" 核";
@@ -374,8 +358,9 @@ async function tick(){
   const lb=(d.log_path||"").split("/").pop()||"无日志";
   $("loglbl").textContent=(err?"仅 error · ":"")+`${d.log.lines.length} 行 · ${lb}`;
   const pre=$("log"); const atBottom=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-30;
-  pre.className=id.level==="dim"?"calm":"";
-  pre.title=id.text||"";
+  const idl=d.idle||{};
+  pre.className=idl.level==="dim"?"calm":"";
+  pre.title=idl.text||"";
   pre.innerHTML=d.log.lines.map(l=>{const c=/error|ERROR|fail|FAIL|assert|Assert|panic|Abort/.test(l)?"e":
     /warn|WARN/.test(l)?"w":/^==/.test(l)?"a":"";return c?`<span class="${c}">${esc(l)}</span>`:esc(l)}).join("\\n");
   if(atBottom) pre.scrollTop=pre.scrollHeight;
