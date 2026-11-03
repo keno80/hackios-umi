@@ -60,6 +60,103 @@ def run(cmd, timeout=3):
         return ""
 
 
+LIVE_TASKS = ("build_umi_xnu.py", "run_umi_qemu.py", "qemu-system-aarch64",
+              "uefi-fw-build", "bootimg", "build-xnu-payload.py", "build-ram-payload.sh")
+
+
+def task_kind(cmd):
+    """把一条 cmdline 归成 (阶段, run 名)，认不出就返回 None。"""
+    if "build_umi_xnu.py" in cmd:
+        m = re.search(r"--stage\s+(\S+)", cmd)
+        return "kernel", (f"stage {m.group(1)}" if m else "build")
+    if "run_umi_qemu.py" in cmd or "qemu-system-aarch64" in cmd:
+        m = re.search(r"--out\s+(\S+)", cmd)
+        return "qemu", (os.path.basename(m.group(1)) if m else "qemu")
+    if "uefi-fw-build" in cmd:
+        m = re.search(r"uefi-fw-build[\"']?\s+(\S+)", cmd)
+        return "firmware", (m.group(1) if m else "uefi-fw")
+    if "build-xnu-payload.py" in cmd or "build-ram-payload.sh" in cmd:
+        return "pack", "payload 卷"
+    if "bootimg" in cmd:
+        return "pack", "bootimg"
+    return None, None
+
+
+def cmdline(pid):
+    try:
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            return f.read().replace(b"\0", b" ").decode("utf-8", "replace").strip()
+    except OSError:
+        return ""
+
+
+def proc_start(pid):
+    """进程启动的绝对时刻：/proc/stat 的 btime 加上 starttime/HZ。"""
+    try:
+        with open("/proc/stat") as f:
+            btime = next(int(l.split()[1]) for l in f if l.startswith("btime "))
+        with open(f"/proc/{pid}/stat") as f:
+            fields = f.read().rsplit(")", 1)[1].split()
+        return btime + int(fields[19]) / os.sysconf("SC_CLK_TCK")
+    except (OSError, ValueError, StopIteration, IndexError):
+        return None
+
+
+def proc_log(pid):
+    """驱动自己的 stdout 日志：nohup 重定向到哪，面板就该跟到哪。"""
+    for fd in ("1", "2"):
+        try:
+            path = os.readlink(f"/proc/{pid}/fd/{fd}")
+        except OSError:
+            continue
+        if path.startswith("/") and os.path.isfile(path):
+            return path
+    return None
+
+
+def live_task():
+    """状态文件没登记、但确实在跑的任务。
+
+    面板只信状态文件的话，任何忘了写 tui-state 的启动脚本都会让它显示「无任务」，
+    日志尾巴停在上一轮——看着像编译卡死，其实是面板自己死了。
+    """
+    now = time.time()
+    if _prev["adopt"] and now - _prev["adopt"][0] < 2:
+        return _prev["adopt"][1]
+    best = None
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit() or entry == str(os.getpid()):
+            continue
+        cmd = cmdline(int(entry))
+        if not cmd or "monitor_umi" in cmd or "monitor_web" in cmd:
+            continue
+        if not any(name in cmd for name in LIVE_TASKS):
+            continue
+        kind, run = task_kind(cmd)
+        if kind is None:
+            continue
+        log = proc_log(int(entry))
+        if kind == "qemu" and run == "qemu" and log:
+            # 选中往往是 qemu-system 本体，命令行里没有 --out；从日志路径反推 run 名
+            m = re.search(r"umi-qemu/([^/]+)/", log.replace(os.sep, "/"))
+            if m:
+                run = m.group(1)
+        try:
+            fresh = os.path.getmtime(log) if log else 0
+        except OSError:
+            fresh = 0
+        cand = {"pid": entry, "kind": kind, "run": run, "log": log,
+                "start": proc_start(int(entry)), "fresh": fresh}
+        if best is None or (cand["fresh"], cand["start"] or 0) > (best["fresh"], best["start"] or 0):
+            best = cand
+    _prev["adopt"] = (now, best)
+    return best
+
+
+_prev = {"cpu": None, "cores": None, "hist": [], "git": (0, None), "patches": (0, None),
+         "adopt": (0, None)}
+
+
 def read_state():
     st = {}
     try:
@@ -70,10 +167,18 @@ def read_state():
                     st[k.strip()] = v
     except OSError:
         pass
+    if not (st.get("PID") and os.path.isdir(f"/proc/{st['PID']}")):
+        task = live_task()
+        if task:
+            st["PID"] = task["pid"]
+            st["PHASE"] = task["kind"]
+            st["RUN"] = task["run"]
+            st["TOOL"] = "自动接管"
+            if task["log"]:
+                st["LOG"] = task["log"]
+            if task["start"]:
+                st["START_TS"] = str(int(task["start"]))
     return st
-
-
-_prev = {"cpu": None, "cores": None, "hist": [], "git": (0, None), "patches": (0, None)}
 
 
 def proc_stat():
@@ -288,7 +393,8 @@ def render(st, w, budget, err_only, full_log, rows):
         return f"{C['head']}{pad(t, dw(t))}{C['reset']}{C['dim']}{pad(n, width - dw(t) - 1)}{C['reset']}"
 
     phase = st.get("PHASE", "idle")
-    run_lbl = {"build": "build firmware", "qemu": "QEMU 内核", "idle": "空闲"}.get(phase, phase)
+    run_lbl = {"build": "build firmware", "kernel": "build kernel", "firmware": "build firmware",
+               "qemu": "QEMU 内核", "pack": "打包镜像", "idle": "空闲"}.get(phase, phase)
     alive = st.get("PID") and os.path.isdir(f"/proc/{st['PID']}")
     up = st.get("START_TS")
     elapsed = ""
