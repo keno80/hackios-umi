@@ -358,8 +358,9 @@ async function tick(){
   const lb=(d.log_path||"").split("/").pop()||"无日志";
   $("loglbl").textContent=(err?"仅 error · ":"")+`${d.log.lines.length} 行 · ${lb}`;
   const pre=$("log"); const atBottom=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-30;
-  pre.className=id.level==="dim"?"calm":"";
-  pre.title=id.text||"";
+  const idl=d.idle||{};
+  pre.className=idl.level==="dim"?"calm":"";
+  pre.title=idl.text||"";
   pre.innerHTML=d.log.lines.map(l=>{const c=/error|ERROR|fail|FAIL|assert|Assert|panic|Abort/.test(l)?"e":
     /warn|WARN/.test(l)?"w":/^==/.test(l)?"a":"";return c?`<span class="${c}">${esc(l)}</span>`:esc(l)}).join("\\n");
   if(atBottom) pre.scrollTop=pre.scrollHeight;
