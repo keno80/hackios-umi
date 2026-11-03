@@ -17,7 +17,23 @@ typedef unsigned long vm_size_t;
 #define VM_WIMG_IO 0x10u
 #define kernel_map ((void *)1)
 #define VM_MAP_NULL ((void *)0)
-#define bcopy(src, dst, len) memmove((dst), (src), (len))
+
+/*
+ * The device faults on an unaligned bcopy; glibc silently does not. Emulating the
+ * hardware rule here is what keeps a painter change from only being caught on a phone.
+ */
+static void
+umi_test_bcopy(const void *umi_src, void *umi_dst, size_t umi_len)
+{
+	if ((((uintptr_t) umi_src | (uintptr_t) umi_dst | (uintptr_t) umi_len) & 7UL) != 0) {
+		fprintf(stderr, "bcopy 未对齐 src=%p dst=%p len=%zu（真机会对齐异常）\n",
+		    umi_src, umi_dst, umi_len);
+		exit(2);
+	}
+	memmove(umi_dst, umi_src, umi_len);
+}
+
+#define bcopy(src, dst, len) umi_test_bcopy((src), (dst), (len))
 
 struct umi_test_video {
 	unsigned long v_baseAddr;
@@ -137,7 +153,8 @@ main(int argc, char **argv)
 		umi_screen_text("kernel_bootstrap_thread: call_current_thread_start");
 		umi_screen_mark(0x50, 0xFFFFFE0001234ABCUL);
 		umi_screen_text("bsd_init: setting up root mount");
-		for (int umi_loop = 0; umi_loop < 12; umi_loop++) {
+		int umi_lines = (argc > 1 && strcmp(argv[1], "openloop") == 0) ? 12 : 60;
+		for (int umi_loop = 0; umi_loop < umi_lines; umi_loop++) {
 			umi_screen_mark(0x51, (unsigned long) umi_loop * 0x1122334455667788UL);
 		}
 		for (int umi_loop = 0; umi_loop < 4000; umi_loop++) {
