@@ -15,3 +15,5 @@
 # Windows 侧批处理保持 CRLF
 *.ps1  text eol=crlf
 *.bat  text eol=crlf
+# .cmd 启动器同样必须 CRLF
+*.cmd  text eol=crlf
