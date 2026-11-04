@@ -1,0 +1,26 @@
+--- a/bsd/kern/ubc_subr.c
++++ b/bsd/kern/ubc_subr.c
+@@ -3941,7 +3941,10 @@
+ 		blob->csb_native4k_hash_count = 0;
+ 	}
+ 	if (blob->csb_entitlements != NULL) {
+-		amfi->OSEntitlements_invalidate(blob->csb_entitlements);
++		/* umi: no AMFI KPI is registered, so there is nothing to invalidate. */
++		if (amfi != NULL) {
++			amfi->OSEntitlements_invalidate(blob->csb_entitlements);
++		}
+ 		osobject_release(blob->csb_entitlements);
+ 		blob->csb_entitlements = NULL;
+ 	}
+@@ -4408,6 +4411,11 @@
+ 	 */
+ 	assert(ret == KERN_NOT_SUPPORTED);
+ 
++	/* umi: no AMFI KPI is registered, so entitlement queries stay "no entitlement". */
++	if (amfi == NULL) {
++		return 0;
++	}
++
+ 	ret = amfi->OSEntitlements.adjustContextWithoutMonitor(
+ 		cs_blob->csb_entitlements,
+ 		cs_blob);
