@@ -102,7 +102,47 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - `tools-wsl/run-owner-root-qemu.sh audit|trust [run名]` — prelink + `run_umi_qemu.py --root-volume` 取证，产物落 `out/umi-qemu/<run名>/`
 - `tools-wsl/evaluate-owner-root-evidence.py RUN [audit|trust]` — 把官方 `check_umi_owner_root_qemu.py` 的 23 条断言逐条拆成 PASS/FAIL（断言集合不增减，别拿去当"我放宽了"的借口）
 - 两档的停法不一样：audit 停 `_panic`（拒挂根是它的证据），trust 停 `_native_owner_root_accepted_checkpoint` 且必须带 `--finish`
-- 还差两件才够官方一站式 PASS：`out/umi/screen-qemu-baseline.json`（要官方 screen-diagnostics 资格化链，本机完全没有）和 `--systemos` 要的 trustcache 原件（sha `7416ca4f…`，本机两枚 per-volume 件是 `9742f3d5…`/`4563bdbf…`，不是它）
+- 还差一件才够官方一站式 PASS：`out/umi/screen-qemu-baseline.json`（要官方 screen-diagnostics 资格化链，本机完全没有）。trustcache 原件那件缺口已在本仓闭合，见下面 U 步之四
+
+### U 步之四：trustcache 原件取源与 38 档取证（纯 Linux）
+- `tools-wsl/fetch-ipsw-buildmanifest-linux.py` — 用上游 `unixnu.ipsw.RangeFile` 走 HTTP Range 只取远端 IPSW 的
+  `BuildManifest.plist`（749,588 B，sha 命中 `devices/umi/ipsw-inputs.json` 的 `manifest_sha256`），不落整包
+- `tools-wsl/run-original-trust-linux.sh` — 上面那件 + **官方 `tools/prepare_umi_trustcache.py` 一字未改**，
+  产 `out/umi/trustcache/original-static-system.bundle`（61,356 B，sha `7416ca4f…`，官方件里 assert 钉死）+ `inputs.json`
+- `tools-wsl/run-trustcache-qemu.sh [run名] [停点符号]` — `run_umi_qemu.py --trust-cache … --root-volume …` 跑到
+  launchd 的 AMFI 信任缓存查询；`EXTRA_TRACE=1 FINISH=0 … _panic` 是探路跑法（把候选全挂 logpoint 看 lr 归属）
+- `tools-wsl/evaluate-trustcache-evidence.py RUN` — 把官方 `check_umi_trustcache_qemu.py` 的 13 条断言逐条拆成 PASS/FAIL
+- `tools-wsl/check-trustcache-official.sh` — **直接跑上游官方 check 件**（导出工具链 PATH 后可用），产
+  `out/umi/trustcache-qemu-baseline.json`；本机实测 PASS，14/14
+- **停点原理**：官方只要求最终 `pc` 落在 AMFI 的 `__TEXT_EXEC` extent 内，而 `--finish` 的 `pc` 是**调用方返回址**；
+  donor AMFI 段里 `nm` 符号数 0，所以别去找「AMFI 内部地址」，要挑**被 AMFI 调用的内核符号**（`trust_cache`/`cs*` 面）
+- **观测件通路**：`trace_events` 每条带 `pc/x0/x1/lr/elapsed_seconds`（`gdb-stop.py` 里两处 append 都是这个形状），
+  所以一次跑就能按 `lr` 落在哪个段来判「谁调用了谁」，不需要静态反汇编
+- 两个本机工具坑：`xcrun nm` 只在导出 `XNU_TOOLCHAIN_BIN` + 工具链 PATH 后可用（`/usr/bin/xcrun` 是 Linux shim，
+  默认 PATH 下退化成 GNU `nm`，对 Mach-O 报 `file format not recognized`）；本机没有能按 VMA 反汇编 prelinked 件的
+  objdump（GNU 不认这格式，`llvm-objdump -d` 只吃它自己认识的符号址区间）
+
+### U 步之五：SystemOS union 与 dyld shared cache（进系统的那道闸）
+- `tools-wsl/run-kernel-systemos.sh` — `build_umi_xnu.py --stage kernel --profile qemu --crypto-bootstrap prelinked
+  --native-ufs --owner-root trust --systemos`；`--systemos` 要求 owner-root=trust，并打开
+  `XNU_OWNER_CACHE_MOUNT/OWNER_CACHE_STARTUP/OWNER_BOOT_MANIFEST/OWNER_UNION_SYSTEMOS/NATIVE_CS_HASH_CACHE`
+- 判读件是官方的 `tools/analyze_umi_systemos_qemu.py`（不是 check 件，它拒绝覆盖已有 analysis.json），
+  它断言 `_native_owner_cache_status=0`/`authorized=1`/`native_union=1`、`_initproc_spawned=1`，
+  并把结果分成 `launchd_main_and_services_observed_within_bounded_run` 等四档；
+  `ios_ui_observed` 与 `phone_runtime_equivalence_proved` 在上游自己手里恒为 false
+- `run_umi_qemu.py --systemos-volume` 必须与 `--root-volume` 同给（它自己 error 出来），并会 SHA 校验第二个窗，
+  两块只读盘分别落到 `virtio_block_input` / `virtio_extra_block_input`
+- **原版卷实测（u151/u152/u154，纯 Linux 只读）**：OS 卷 `DawnUpdate21H461…OS` 里
+  `/usr/lib/dyld`(937,056, `cf fa ed fe` filetype 7) 与 `/sbin/launchd`(561,856, filetype 2) 是实体文件，
+  但 **`/usr/lib/libSystem.B.dylib` 不存在**（只有 `libSystem.B_asan.dylib`），
+  `/System/Library/Caches/com.apple.dyld` 整个目录也不存在（`/System/Library/Caches` 只有 3 项）→
+  屏上 `(no such file, no dyld cache)` 是字面正确，扩假根这条路本来就装不下
+- **shared cache 在 SystemOS cryptex 窗里，且是明文**：该窗扫到 `dyld_v1` 65 次、`dyld_shared_cache` 253 次、
+  `libSystem.B.dylib` 3,345 次、`com.apple.dyld` 70 次。libfsapfs 打不开这个卷的 B-tree
+  （`invalid object type: 0x00000000`），但内核侧的原版 APFS 驱动不受这个限制——所以走 `--systemos-volume` 而不是主机解析
+- pyfsapfs 的 `file_entry` 面**没有** `metadata`/`get_number_of_sub_entries`；正确用法是
+  `vol.get_file_entry_by_path("/…")`（路径不存在返回 `None`，不是异常）+
+  `entry.get_number_of_sub_file_entries()` / `get_sub_file_entry(i)` / `entry.size` / `entry.file_mode`
 
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
@@ -137,9 +177,22 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   屏上硬证据：`vfs_mountroot enter` → `vfs_mountroot mounted; authentication pending` → `calling VFS_ROOT`；
   18 字段里 `apple_autherr=80`(EAUTH)、`owner_decision=readonly=1`、三设备号同 `0x1000003`、
   `provider_depth=9`、`virtio 已验块 329`、audit `phase=1 accepted=0` / trust `phase=2 accepted=1`
-- 🔴 **当前闸**：屏上 `Library not loaded: /usr/lib/libSystem.B.dylib`（marks=3351）。两槽假根装不下系统库，
-  已判死「扩假根」；owner-root 已通，下一步是 `--systemos` + `--systemos-volume` + `--trust-cache`
-- ℹ️ Mac VM：本轮不用、也别删。Linux 侧已顶掉 AEA 解密与 `dwarfdump/nm`；唯一残留缺口是「往 APFS 卷写文件」（`apfsprogs` 无写文件工具，`apfs-dkms` 已装未编，本树 `bsd/miscfs/` 无 APFS 驱动）
+- ✅ **U 步之四（trustcache 原件 + 38 档结案）**：Linux 侧 Range 取 `BuildManifest.plist` → 官方
+  `prepare_umi_trustcache.py` 一字未改产 `original-static-system.bundle`（sha `7416ca4f…`）→
+  `qemu-trustcache-runtime.macho`（sha `b11d3148…`）+ `--trust-cache --root-volume` 停
+  `_query_trust_cache --finish`，**官方 `check_umi_trustcache_qemu.py` 本机直接跑出 PASS**，
+  产 `out/umi/trustcache-qemu-baseline.json`（`query_return=0`、`returned_to_original_amfi=true`、
+  `root_owner_accepted=true`、`user_program_load_reached=true`、`el0_execution_proved=false`）。
+  屏上硬证据：`SETCONF rootdev=0x1000003 rd=disk1s1` → `vfs_mountroot mounted` → `calling VFS_ROOT` →
+  `root authentication decision recorded` → `bsd_init: done` → `load_init_program enter` →
+  `INIT try /sbin/launchd` → REAP 六发全 ok → `drivers 1 loaded / 0 failed`
+- ✅ **原版卷取证结案（u151/u152/u154）**：OS 卷里 `dyld`/`launchd` 是实体文件，但 `libSystem.B.dylib`
+  与 `com.apple.dyld` 目录**都不存在**；shared cache 明文躺在 SystemOS cryptex 窗里（`dyld_v1` 65 次命中）。
+  所以「进系统」的正解是上游的 `--systemos` 档，不是往假根里塞文件
+- 🔴 **当前闸**：SystemOS 档内核构建中（`run-kernel-systemos.sh`）。过闸判据 = 屏上不再出现
+  `(no such file, no dyld cache)`，且 `analyze_umi_systemos_qemu.py` 给出 `launchd_main_observed=true`
+- ℹ️ Mac VM：本轮不用、也别删。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm` 与官方 trustcache 资格化；
+  唯一残留缺口是「往 APFS 卷写文件」（`apfsprogs` 无写文件工具，`apfs-dkms` 已装未编，本树 `bsd/miscfs/` 无 APFS 驱动）
 
 ## 硬约束（用户原话级，不要重新征询）
 
