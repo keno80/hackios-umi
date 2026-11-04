@@ -193,7 +193,6 @@ def snapshot(lines, err_only):
         "alive": alive,
         "elapsed": elapsed,
         "idle": M.idle_info(st, alive),
-        "notes": [st.get(f"NOTE{i}", "") for i in (1, 2, 3) if st.get(f"NOTE{i}")],
         "loadavg": la,
         "cpu": cpu,
         "cores": pairs,
@@ -208,8 +207,7 @@ def snapshot(lines, err_only):
         "artifacts": [{"name": n, "size": sz, "expect": ex,
                        "frac": (sz / ex if ex else (1.0 if sz else 0.0))}
                       for n, sz, ex in [(a[0], a[1], a[2]) for a in M.artifacts()]],
-        "tasks": [{"state": v.split("|", 1)[0], "text": v.split("|", 1)[1] if "|" in v else v}
-                  for i in range(1, 6) for v in [st.get(f"TASK{i}", "")] if v],
+        "cmd": M.cmdline(pid) if alive else "",
         "screen": screen_info(st.get("RUN", "")),
     }
 
@@ -255,17 +253,16 @@ pre.calm{opacity:.45}
 .co div i{position:absolute;bottom:0;left:0;right:0;background:#2a7f5f}
 .co div b{position:absolute;width:100%;text-align:center;font-size:10px;color:#8fa3b3;font-weight:400}
 .ok{color:var(--acc)}.no{color:var(--dim)}.ba{color:var(--err)}
-footer{display:flex;flex-direction:column;gap:4px;padding:2px 0 0;flex:0 0 auto}
-.tasks{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:4px 18px}
-.tk{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tk.run{color:var(--acc)}.tk.done{color:var(--cyan)}.tk.gate{color:var(--warn)}.tk.wait{color:var(--dim)}
+.card.cmd{flex:0 0 auto}
+.card.cmd pre{flex:none;max-height:144px}
+.card.cmd .path{color:var(--dim);padding:2px 10px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .note{color:var(--dim);margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.keys{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.keys{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 button{background:#152029;color:var(--fg);border:1px solid var(--line);border-radius:3px;
 padding:3px 10px;font:inherit;cursor:pointer}
 button:hover{border-color:var(--cyan)}button.act{color:var(--acc);border-color:#1c4b33}
 button.danger{color:var(--err);border-color:#4b1c1c}
-.g{margin-left:auto;color:var(--warn)}
+header>.chip{margin-left:auto}
 .stale{color:var(--err)}
 .shot{flex:1;min-height:120px;display:flex;flex-direction:column;gap:4px;background:#05090d;padding:6px;overflow:hidden}
 .shot img{flex:1;min-height:0;width:100%;object-fit:contain;image-rendering:pixelated;cursor:zoom-in;background:#000}
@@ -275,25 +272,19 @@ button.danger{color:var(--err);border-color:#4b1c1c}
 </style></head><body>
 <header>
   <b>UniXNU · umi</b>
+  <div class="keys">
+    <button id="bp">暂停</button><button id="be">只看 error</button><button id="bl">全量 log</button>
+    <button id="br">立即刷新</button><button id="bk" class="danger">终止当前任务</button>
+  </div>
   <span class="chip" id="clock">—</span>
 </header>
 <div class="grid">
   <div class="col">
     <div class="card"><h3>编译/工作通道 <span>top4 by CPU</span></h3><div id="lanes"></div>
       <div id="prog"></div></div>
+    <div class="card cmd"><h3>当前命令 <span id="cmdmeta"></span></h3>
+      <pre id="cmd">等待数据…</pre><div class="path" id="cmdpath"></div></div>
     <div class="card grow"><h3>日志尾部 <span id="loglbl"></span></h3><pre id="log">等待数据…</pre></div>
-    <footer>
-      <div class="tasks" id="tasks"></div>
-      <div class="note" id="note"></div>
-      <div class="keys">
-        <button id="bp">暂停</button><button id="be">只看 error</button><button id="bl">全量 log</button>
-        <button id="br">立即刷新</button><button id="bk" class="danger">终止当前任务</button>
-        <select id="bi" style="background:#152029;color:var(--fg);border:1px solid var(--line)">
-          <option value="1000">1s</option><option value="2000" selected>2s</option><option value="5000">5s</option>
-        </select>
-        <span class="g">⚠ 面板只读，不写手机</span>
-      </div>
-    </footer>
   </div>
   <div class="col">
     <div class="card"><h3>WSL 资源 <span id="ncpu"></span></h3><div id="res2"></div>
@@ -307,7 +298,7 @@ button.danger{color:var(--err);border-color:#4b1c1c}
 </div>
 <div id="zoom"><img id="zoomimg" alt="QEMU 画面（放大）"></div>
 <script>
-let err=false, full=false, paused=false, iv=2000, timer=null, fails=0;
+let err=false, full=false, paused=false, iv=1000, timer=null, fails=0;
 const $=id=>document.getElementById(id);
 const esc=s=>(s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 const fmt=n=>(n||0).toLocaleString("en-US");
@@ -352,13 +343,13 @@ async function tick(){
     return `<div class="row"><span class="nm ${k}">${a.frac>=1?"✓":a.frac>0?"…":"—"} ${esc(a.name)}</span>`+
     `<span class="meter"><i class="${a.frac>=1?"":a.frac>0?"w":"e"}" style="width:${Math.min(100,a.frac*100).toFixed(0)}%"></i></span>`+
     `<span class="pct" style="width:104px">${fmt(a.size)}B</span></div>`}).join("");
-  const G={run:"◉",gate:"◐",wait:"○",done:"✓"};
-  $("tasks").innerHTML=d.tasks.map(t=>`<span class="tk ${t.state}">${G[t.state]||"·"} ${esc(t.text)}</span>`).join("");
-  $("note").textContent=d.notes.join("   |   ");
+  const idl=d.idle||{};
+  $("cmd").textContent=d.cmd||(d.alive?"（该进程读不到命令行）":"当前无任务");
+  $("cmdmeta").textContent=d.alive?`PID ${d.pid} · 已跑 ${hms(d.elapsed||0)}`:(idl.text||"无任务");
+  $("cmdpath").textContent=d.log_path||"";
   const lb=(d.log_path||"").split("/").pop()||"无日志";
   $("loglbl").textContent=(err?"仅 error · ":"")+`${d.log.lines.length} 行 · ${lb}`;
   const pre=$("log"); const atBottom=pre.scrollTop+pre.clientHeight>=pre.scrollHeight-30;
-  const idl=d.idle||{};
   pre.className=idl.level==="dim"?"calm":"";
   pre.title=idl.text||"";
   pre.innerHTML=d.log.lines.map(l=>{const c=/error|ERROR|fail|FAIL|assert|Assert|panic|Abort/.test(l)?"e":
@@ -385,11 +376,10 @@ $("bp").onclick=e=>{paused=!paused; e.target.className=paused?"act":""; e.target
 $("be").onclick=e=>{err=!err; e.target.className=err?"act":""; tick();};
 $("bl").onclick=e=>{full=!full; e.target.className=full?"act":""; tick();};
 $("br").onclick=()=>tick();
-$("bi").onchange=e=>{iv=+e.target.value; restart();};
 $("bk").onclick=async()=>{const pid=prompt(`确认终止 PID？输入 pid 数字：`,"");
   if(!pid) return;
   const r=await fetch("/api/kill",{method:"POST",headers:{"X-Confirm":"kill-"+pid}});
-  $("note").textContent="终止请求："+JSON.stringify(await r.json()); tick();};
+  $("cmdpath").textContent="终止请求："+JSON.stringify(await r.json()); tick();};
 $("shot").onclick=()=>{$("zoomimg").src=$("shot").src;$("zoom").classList.add("on");};
 $("zoom").onclick=()=>$("zoom").classList.remove("on");
 tick(); restart();
