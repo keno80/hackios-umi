@@ -1,7 +1,7 @@
 #!/bin/bash
 # 静态核对 trace 档内核：打点前缀字符串、start.o 里的 0xB0000000 块映射
 set -u
-OUT=/mnt/e/Code/HackIos/out/g-trace-verify.txt
+OUT=/mnt/e/Code/HackIos/out/probes/g-trace-verify.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/kernel/entry-trace-kernel.macho

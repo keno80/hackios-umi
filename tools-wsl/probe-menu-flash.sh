@@ -16,5 +16,5 @@ echo "== 设备仓 README/Status 里的菜单上机说明"
 grep -rIn -A3 -B1 "menu.img\|uefi-menu" $WS/sources/uefi-umi/README*.md $WS/sources/uefi-umi/Building.md $WS/sources/uefi-umi/Status.md 2>/dev/null | head -30
 echo "== UniXNU 文档里 bootimg 的用法"
 grep -rIn "bootimg" $WS/sources/UniXNU/scripts/unixnu/*.py | head -12
-} > /mnt/e/Code/HackIos/out/menu-flash.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/menu-flash.txt 2>&1
 echo WROTE

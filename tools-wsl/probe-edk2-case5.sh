@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/edk2-case5.txt
+OUT=/mnt/e/Code/HackIos/out/probes/edk2-case5.txt
 MB=/home/unixnu/code/Mu_Basecore
 {
   echo "== Misc.py 1555..1600"

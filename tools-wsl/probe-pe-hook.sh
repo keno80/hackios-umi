@@ -2,7 +2,7 @@
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 P=/home/unixnu/code/umi-work-pin/devices/umi/patches/umi-xnu/zzzzzzzzzzzzzzzzzz-umi-crypto-kit.patch
-O=/mnt/e/Code/HackIos/out/pe-hook-state.txt
+O=/mnt/e/Code/HackIos/out/probes/pe-hook-state.txt
 {
   echo "== patch: file headers and hunks =="
   grep -n '^---\|^+++\|^@@' "$P"

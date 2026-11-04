@@ -10,6 +10,6 @@ echo
 echo "=== uart 尾部 25 行 ==="
 tail -25 "$OUT/gdb-uart.log" 2>/dev/null | cat -v | cut -c1-160
 echo "=== 取屏 ==="
-[ -f "$OUT/screen.png" ] && cp "$OUT/screen.png" /mnt/e/Code/HackIos/out/rev3-qemu-screen.png && echo "copied screen.png"
+[ -f "$OUT/screen.png" ] && cp "$OUT/screen.png" /mnt/e/Code/HackIos/out/screens/rev3-qemu-screen.png && echo "copied screen.png"
 echo "=== runner.log ==="
 tail -8 "$OUT/runner.log" 2>/dev/null

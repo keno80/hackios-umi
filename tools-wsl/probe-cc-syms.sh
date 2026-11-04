@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/cc-syms.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-syms.txt
 {
   echo "== in-tree corecrypto symbols needed for the kit =="
   for s in ccdigest_init ccdigest_update ccdigest_final ccdigest ccmd5_di ccsha1_di \

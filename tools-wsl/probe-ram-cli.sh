@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/ram-cli.txt
+OUT=/mnt/e/Code/HackIos/out/probes/ram-cli.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 echo "== 1. prepare CLI 参数" >> "$OUT"

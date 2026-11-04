@@ -53,5 +53,5 @@ for ln in raw.splitlines():
                     print(f"  {va:#x} [{s['name']}] {txt!r}")
                 break
 PY
-} > /mnt/e/Code/HackIos/out/ioroot-dis.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/ioroot-dis.txt 2>&1
 echo WROTE

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/edk2-case4.txt
+OUT=/mnt/e/Code/HackIos/out/probes/edk2-case4.txt
 B=/home/unixnu/code/uefi-umi-b
 MB=/home/unixnu/code/Mu_Basecore
 {

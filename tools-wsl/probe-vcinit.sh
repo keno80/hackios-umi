@@ -2,7 +2,7 @@
 set -u
 R=/home/unixnu/code/umi-work-pin
 T=$R/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/vcinit.txt
+O=/mnt/e/Code/HackIos/out/probes/vcinit.txt
 V=$T/osfmk/console/video_console.c
 {
 echo "== PE_initialize_console (pe_init.c 190-250)"

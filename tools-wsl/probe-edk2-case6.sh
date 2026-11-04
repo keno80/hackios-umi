@@ -1,6 +1,6 @@
 #!/bin/bash
 # 只读探底：edk2 RealPath2 / PathValidator 源码，以及它在本机的实际输入
-O=/mnt/e/Code/HackIos/out/edk2-case6.txt
+O=/mnt/e/Code/HackIos/out/probes/edk2-case6.txt
 M=/home/unixnu/code/Mu_Basecore/BaseTools/Source/Python/Common/Misc.py
 {
 echo "== RealPath2 def 位置"

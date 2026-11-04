@@ -20,5 +20,5 @@ find /home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB/AARCH64 -maxdepth 
 echo "== edk2 是否已回滚干净 + 软链复位"
 git -C /home/unixnu/code/Mu_Basecore status --porcelain | wc -l
 ls -ld /home/unixnu/code/uefi-umi-b/Mu_Basecore
-} > /mnt/e/Code/HackIos/out/fw06-verify.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/fw06-verify.txt 2>&1
 echo WROTE

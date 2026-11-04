@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 LOGD=/home/unixnu/code/UniXNU-main/out/unixnu-logs
-O=/mnt/e/Code/HackIos/out/build-status.txt
+O=/mnt/e/Code/HackIos/out/probes/build-status.txt
 LOG=$(cat "$LOGD/kernel-screen-latest.txt")
 PID=$(cat "$LOGD/kernel-screen.pid")
 {

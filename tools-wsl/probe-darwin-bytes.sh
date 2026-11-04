@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 B=/home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB
-LOG=/mnt/e/Code/HackIos/out/darwinboot-bytes.txt
+LOG=/mnt/e/Code/HackIos/out/probes/darwinboot-bytes.txt
 python3 - "$B" <<'PY' > "$LOG" 2>&1
 import glob, hashlib, os, struct, sys
 B = sys.argv[1]

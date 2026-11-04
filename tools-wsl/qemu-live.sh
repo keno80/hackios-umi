@@ -6,7 +6,7 @@ export DISPLAY=${DISPLAY:-:0}
 W=/home/unixnu/code/umi-work-pin
 SRC=$W/out/umi-qemu/run-02-screen/esp
 LIVE=$W/out/umi-qemu/live
-UART=/mnt/e/Code/HackIos/out/qemu-live-uart.log
+UART=/mnt/e/Code/HackIos/out/probes/qemu-live-uart.log
 CODE=/usr/share/qemu/edk2-aarch64-code.fd
 VARS_T=/usr/share/AAVMF/AAVMF_VARS.fd
 [ -d "$SRC" ] || { echo "没有已验证的 ESP：$SRC"; exit 1; }

@@ -1,6 +1,6 @@
 #!/bin/bash
 # 抓 RealPath2 源码 + 复现返回值
-O=/mnt/e/Code/HackIos/out/edk2-case7.txt
+O=/mnt/e/Code/HackIos/out/probes/edk2-case7.txt
 PY=/home/unixnu/code/Mu_Basecore/BaseTools/Source/Python
 {
 echo "== grep RealPath2 / AlterRoot"

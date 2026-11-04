@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-LOG=/mnt/e/Code/HackIos/out/xnu-hooks.txt
+LOG=/mnt/e/Code/HackIos/out/probes/xnu-hooks.txt
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 {
   echo "== platform_log_write 定义位置"

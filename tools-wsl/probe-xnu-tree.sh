@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-LOG=/mnt/e/Code/HackIos/out/xnu-tree.txt
+LOG=/mnt/e/Code/HackIos/out/probes/xnu-tree.txt
 {
   for d in /home/unixnu/code/UniXNU-umi /home/unixnu/code/umi-work /home/unixnu/code/UniXNU-pin /home/unixnu/code/UniXNU /home/unixnu/code/umi-work-pin; do
     echo "== $d"

@@ -12,4 +12,4 @@ grep -rn "AlterRoot" $S | head -30
 echo '== Edk2Path 里 Root 的赋值（grep -n "self.Root" 前 30）'
 grep -rn "self\.Root" $S/Edk2Path.py 2>/dev/null | head -30
 echo DONE
-} > /mnt/e/Code/HackIos/out/case-src.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/case-src.txt 2>&1

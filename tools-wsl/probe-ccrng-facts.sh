@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/ccrng-facts.txt
+O=/mnt/e/Code/HackIos/out/probes/ccrng-facts.txt
 {
   echo "== source defining ccrng_prng =="
   grep -rln 'ccrng_prng' "$W" --include=*.c --include=*.h --include=*.cpp 2>/dev/null | head

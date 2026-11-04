@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 UP=$WS/sources/UniXNU
-OUT=/mnt/e/Code/HackIos/out/altroot-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/altroot-probe.txt
 {
   echo "== umi_historical_receipts.py 全文（能不能取到作者的收据/审计）"
   head -60 "$WS/tools/umi_historical_receipts.py"

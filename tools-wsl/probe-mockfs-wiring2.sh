@@ -1,7 +1,7 @@
 #!/bin/bash
 # 确认：defconfig->env 的接线、build_umi_xnu 是否会自动产 mockfs fixture、两份 umi 仓的关系
 set -u
-OUT=/mnt/e/Code/HackIos/out/mockfs-wiring2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/mockfs-wiring2.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 WS=/home/unixnu/code/umi-work-pin

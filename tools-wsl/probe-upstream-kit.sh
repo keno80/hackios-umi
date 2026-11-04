@@ -1,7 +1,7 @@
 #!/bin/bash
 # 摸清上游 boot-progress 套件：谁把 XNU_BOOT_PROGRESS 置 1、bind 能不能绑我们的 FB。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-upstream-kit.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-upstream-kit.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 echo "== kits/umi/boot-progress 目录 =="

@@ -2,7 +2,7 @@
 # umi 板级配置里是否声明了 [ipsw] 与 [userdata] windows；以及取 IPSW 的入口
 set -u
 W=/home/unixnu/code/umi-work-pin
-OUT=/mnt/e/Code/HackIos/out/board-ipsw.txt
+OUT=/mnt/e/Code/HackIos/out/probes/board-ipsw.txt
 {
   echo "== devices/umi 目录"
   ls -1 $W/devices/umi/ 2>&1 | head -20

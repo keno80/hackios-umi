@@ -2,7 +2,7 @@
 # 看 IOKitUser 头集合、它的自包含依赖，以及 fakeroot 现有的 include 布局
 set -u
 TREE=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree
-OUT=/mnt/e/Code/HackIos/out/iokituser-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/iokituser-probe.txt
 {
   echo "== xnu 源里的 IOKitUser 目录"
   ls "$TREE/.cache/xnu-work/iokit/IOKitUser" | head -60

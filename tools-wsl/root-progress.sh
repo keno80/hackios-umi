@@ -1,6 +1,6 @@
 #!/bin/bash
 # 根卷制备进度：成员下载/解盘/写窗口的量化进度与 ETA（滚动速率）
-exec > /mnt/e/Code/HackIos/out/root-progress.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/root-progress.txt 2>&1
 W=/home/unixnu/code/umi-work-pin
 LOG=$W/out/umi-xnu/userdata-prepare.log
 echo "== 时间 $(date -u +%FT%TZ)"

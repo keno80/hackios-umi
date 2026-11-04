@@ -66,5 +66,5 @@ PY
 echo "== strings near ==" >> "$OUT"
 grep -a -o -E '.{0,24}template.{0,24}' "$K" >> "$OUT" 2>&1 | head -20
 echo DONE >> "$OUT"
-cp "$OUT" /mnt/e/Code/HackIos/out/stuck.txt 2>/dev/null
+cp "$OUT" /mnt/e/Code/HackIos/out/probes/stuck.txt 2>/dev/null
 echo copied

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/mockfs-verify.txt
+OUT=/mnt/e/Code/HackIos/out/probes/mockfs-verify.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 S=/home/unixnu/code/UniXNU-main

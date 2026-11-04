@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/qemu-cmd.txt
+OUT=/mnt/e/Code/HackIos/out/probes/qemu-cmd.txt
 D=/home/unixnu/code/umi-work-pin/out/umi-qemu/run-06-root
 : > "$OUT"
 echo "== runner.log ==" >> "$OUT"

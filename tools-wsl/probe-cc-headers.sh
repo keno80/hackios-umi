@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/cc-headers.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-headers.txt
 {
   echo "== ls libkern/crypto =="
   ls -l "$W/libkern/crypto"

@@ -2,7 +2,7 @@
 # 安装并后台启动 umi Web 监控（端口 8765），自检一次 /api/state
 set -u
 S=/mnt/e/Code/HackIos/tools-wsl
-OUT=/mnt/e/Code/HackIos/out/web-launch.txt
+OUT=/mnt/e/Code/HackIos/out/probes/web-launch.txt
 {
   tr -d '\r' < "$S/monitor_umi.py" > /usr/local/bin/umi-mon.py
   tr -d '\r' < "$S/monitor_web.py" > /usr/local/bin/umi-web.py

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-LOG=/mnt/e/Code/HackIos/out/bootprogress-kit.txt
+LOG=/mnt/e/Code/HackIos/out/probes/bootprogress-kit.txt
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 {
   echo "== 1. 我们的源码内核里有没有 boot_progress 符号"

@@ -12,5 +12,5 @@
   ls devices/umi/configs | head -40
   echo "== board.toml 里 profile/kernel 段"
   grep -n -A12 "\[kernel\]\|\[profiles\|\[build\]" devices/umi/board.toml | head -60
-} > /mnt/e/Code/HackIos/out/root-build.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/root-build.txt 2>&1
 echo WROTE

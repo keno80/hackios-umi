@@ -2,7 +2,7 @@
 # Characterise the DTB blobs unpacked from the umi capture.
 set -u
 cd /mnt/e/Code/HackIos/out/phone3/dt || exit 1
-out=/mnt/e/Code/HackIos/out/phone3-dt.txt
+out=/mnt/e/Code/HackIos/out/probes/phone3-dt.txt
 : > "$out"
 for f in boot-dtb dtbo-0 dtbo-8 dtbo-14 running; do
   dtc -I dtb -O dts "$f.dtb" -o "$f.dts" 2>/dev/null

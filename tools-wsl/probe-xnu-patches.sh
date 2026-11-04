@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-LOG=/mnt/e/Code/HackIos/out/umi-xnu-patches.txt
+LOG=/mnt/e/Code/HackIos/out/probes/umi-xnu-patches.txt
 P=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/patches/umi-xnu
 {
   echo "== 尺寸"

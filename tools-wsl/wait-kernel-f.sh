@@ -1,7 +1,7 @@
 #!/bin/bash
 # 等 kernel 步编完（以进程退出为判据），然后核对补丁是否真进了内核。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-wait-kernel.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-wait-kernel.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 LOGD=/home/unixnu/code/UniXNU-main/out/unixnu-logs

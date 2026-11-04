@@ -2,7 +2,7 @@
 set -u
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 F=$X/iokit/Kernel/IOPlatformExpert.cpp
-O=/mnt/e/Code/HackIos/out/genuuid-src.txt
+O=/mnt/e/Code/HackIos/out/probes/genuuid-src.txt
 {
   echo "== IOPlatformExpert.cpp 2200-2300 =="
   sed -n '2200,2300p' "$F" | cat -n | sed 's/^/    /'

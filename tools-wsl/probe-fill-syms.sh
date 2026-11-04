@@ -5,7 +5,7 @@ W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 E=$W/EXTERNAL_HEADERS/corecrypto
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
 NM=$(command -v llvm-nm || command -v nm)
-OUT=/mnt/e/Code/HackIos/out/fill-syms.txt
+OUT=/mnt/e/Code/HackIos/out/probes/fill-syms.txt
 {
   echo "== 声明"
   for f in ccmd5_di ccaes_ecb_encrypt_mode ccaes_ecb_decrypt_mode ccaes_cbc_encrypt_mode ccaes_cbc_decrypt_mode \

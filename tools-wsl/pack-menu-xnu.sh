@@ -30,7 +30,8 @@ IMG=$WS/out/umi/boot/umi-uefi-menu-xnu.img
 ls -la "$IMG" 2>/dev/null; sha256sum "$IMG" 2>/dev/null
 
 echo "== 2. 拆包自检"
-python3 - "$IMG" "$FAT" "$DTB" "$FD" <<'PY'
+CHK=$WS/out/umi/boot/pack-check.txt
+python3 - "$IMG" "$FAT" "$DTB" "$FD" >"$CHK" <<'PY'
 import hashlib, struct, sys, zlib
 img, fat, dtb, fd = sys.argv[1:5]
 d = open(img, 'rb').read()
@@ -61,4 +62,15 @@ for label, good in ok:
     print('  %s%s' % ('OK  ' if good else 'FAIL', label))
 print('RESULT', 'ALL-OK' if all(g for _, g in ok) else 'HAS-FAIL')
 PY
+cat "$CHK"
+
+echo "== 3. 交付到 out/images/"
+if grep -q 'RESULT ALL-OK' "$CHK"; then
+  mkdir -p /mnt/e/Code/HackIos/out/images
+  cp -f "$IMG" /mnt/e/Code/HackIos/out/images/umi-uefi-menu-xnu.img
+  ls -l /mnt/e/Code/HackIos/out/images/umi-uefi-menu-xnu.img | sed 's#^# #'
+  sha256sum /mnt/e/Code/HackIos/out/images/umi-uefi-menu-xnu.img | sed 's#^# #'
+else
+  echo "== 自检未过，不交付"
+fi
 echo "== done $(date -u +%FT%TZ)"

@@ -2,7 +2,7 @@
 # 定位 umi 设备仓在 WSL 构建树中的真实可编辑路径，以及 mockfs 开关的读取点
 set -u
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree
-OUT=/mnt/e/Code/HackIos/out/umi-device-repo-path.txt
+OUT=/mnt/e/Code/HackIos/out/probes/umi-device-repo-path.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 

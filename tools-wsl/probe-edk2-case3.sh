@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/edk2-case3.txt
+OUT=/mnt/e/Code/HackIos/out/probes/edk2-case3.txt
 B=/home/unixnu/code/uefi-umi-b
 {
   echo "== uefi-umi-b/Mu_Basecore 是什么"

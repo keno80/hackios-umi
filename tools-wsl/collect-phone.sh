@@ -5,7 +5,7 @@
 set -u
 ROOT_DIR=/home/unixnu/code/umi-work-pin
 ADB_EXE=/mnt/e/platform-tools/adb.exe
-LOG=/mnt/e/Code/HackIos/out/collect-phone.txt
+LOG=/mnt/e/Code/HackIos/out/probes/collect-phone.txt
 exec >"$LOG" 2>&1
 
 if ! command -v adb >/dev/null 2>&1; then

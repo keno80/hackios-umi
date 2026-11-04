@@ -1,7 +1,7 @@
 #!/bin/bash
 # 核对新 UmiBootLog.efi，并把上次上机验证过的 FD 从已打好的镜像里还原回 Build 目录
 set -u
-OUT=/mnt/e/Code/HackIos/out/g-fd-restore.txt
+OUT=/mnt/e/Code/HackIos/out/probes/g-fd-restore.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 UEFI=/home/unixnu/code/uefi-umi-b

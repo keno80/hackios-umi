@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/amfi-global.txt
+OUT=/mnt/e/Code/HackIos/out/probes/amfi-global.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

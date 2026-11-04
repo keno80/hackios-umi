@@ -15,4 +15,4 @@ awk 'NR>=85 && NR<=115 {printf "%4d %s\n", NR, $0}' $W/tools/audit_umi_qemu.py
 echo '== 昨晚 run-01 的产物'
 ls -l $W/out/umi-qemu/run-01 2>/dev/null | head -20
 echo DONE
-} > /mnt/e/Code/HackIos/out/qemu-runner.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/qemu-runner.txt 2>&1

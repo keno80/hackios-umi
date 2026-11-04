@@ -2,7 +2,7 @@
 set -u
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/kernel/source-kernel.macho
-O=/mnt/e/Code/HackIos/out/sha1-gate.txt
+O=/mnt/e/Code/HackIos/out/probes/sha1-gate.txt
 G=fffffff0071c81a8
 {
   echo "== globals around 0x$G =="

@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/cc-names.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-names.txt
 {
   echo "== defined symbols cc(digest|sha|md5|hmac|rng) =="
   llvm-nm --defined-only "$K" 2>/dev/null | awk '{print $3}' | grep -E "^_cc(digest|sha|md5|hmac|rng)" | sort

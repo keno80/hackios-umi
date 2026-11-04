@@ -3,7 +3,7 @@ import glob
 import os
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/kernel-check2.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/kernel-check2.txt', 'w')
 WS = '/home/unixnu/code/umi-work-pin'
 TREE = WS + '/out/umi-xnu/umi/tree'
 KER = WS + '/out/umi-xnu/umi/kernel/source-kernel.macho'

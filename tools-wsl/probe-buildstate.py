@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/buildstate.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/buildstate.txt', 'w')
 R = '/home/unixnu/code/umi-work-pin'
 
 

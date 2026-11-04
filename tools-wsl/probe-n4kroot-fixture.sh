@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/n4kroot-fixture.txt
+OUT=/mnt/e/Code/HackIos/out/probes/n4kroot-fixture.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 S=/home/unixnu/code/UniXNU-main

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-O=/mnt/e/Code/HackIos/out/provider-doc.txt
+O=/mnt/e/Code/HackIos/out/probes/provider-doc.txt
 {
   echo "== docs/tools mentioning provider registration =="
   grep -rIn "kernel_provider_registered\|register_crypto\|provider_registered" "$WS/devices" "$WS/tools" "$WS/docs" 2>/dev/null | head -20

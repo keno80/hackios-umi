@@ -1,7 +1,7 @@
 #!/bin/bash
 # 答「PE_lockdown_iokit 之后屏幕还会不会动」：三张截屏比对 + 这行之后还有没有上屏标记
 set -u
-OUT=/mnt/e/Code/HackIos/out/d-pe-lockdown2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/d-pe-lockdown2.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 Q=/home/unixnu/code/umi-work-pin/out/umi-qemu

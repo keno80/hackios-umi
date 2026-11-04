@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-replay.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-replay.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 WS=/home/unixnu/code/umi-work-pin

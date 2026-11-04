@@ -3,7 +3,7 @@
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 H=$W/libkern/libkern/crypto/register_crypto.h
-OUT=/mnt/e/Code/HackIos/out/kit-fields.txt
+OUT=/mnt/e/Code/HackIos/out/probes/kit-fields.txt
 {
   echo "== register_crypto.h 1..200（typedef 与 include）"
   sed -n '1,200p' "$H"

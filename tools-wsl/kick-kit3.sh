@@ -1,7 +1,7 @@
 #!/bin/bash
 # kit v3：AES-CBC/3DES-CBC/CTS/parity/SHA1 改绑真实现 → 重生成补丁 → 增量重编内核
 set -u
-O=/mnt/e/Code/HackIos/out/kit3-build.txt
+O=/mnt/e/Code/HackIos/out/probes/kit3-build.txt
 exec > "$O" 2>&1
 W=/home/unixnu/code/umi-work-pin
 echo "== 先取 gss/ccrypto.c 的桩函数全表（重编会还原树）=="

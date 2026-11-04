@@ -2,7 +2,7 @@
 set -u
 L=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/logs/20261103T132615602498Z/kernel.log
 D=/home/unixnu/code/UniXNU-main/out/unixnu-logs/kernel-screen-20261103-212615.log
-O=/mnt/e/Code/HackIos/out/build2.txt
+O=/mnt/e/Code/HackIos/out/probes/build2.txt
 {
   echo "== driver log =="
   ls -l "$D"; tail -6 "$D"

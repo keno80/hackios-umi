@@ -7,7 +7,7 @@ ROOT_DIR=/home/unixnu/code/umi-work-pin
 if [ -z "$OUT" ]; then
   OUT=$(ls -1d "$ROOT_DIR"/out/device/umi/* 2>/dev/null | tail -1)
 fi
-LOG=/mnt/e/Code/HackIos/out/check-phone-layout.txt
+LOG=/mnt/e/Code/HackIos/out/probes/check-phone-layout.txt
 exec >"$LOG" 2>&1
 echo "capture: $OUT"
 [ -d "$OUT" ] || { echo "no capture directory"; exit 1; }

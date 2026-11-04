@@ -2,7 +2,7 @@
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 B=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837
-O=/mnt/e/Code/HackIos/out/cc-syms-check.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-syms-check.txt
 NM=$(command -v llvm-nm || command -v nm)
 {
   echo "== nm tool: $NM =="

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 D=/home/unixnu/code/umi-work-pin/sources/UniXNU/drivers
-LOG=/mnt/e/Code/HackIos/out/fb-console.txt
+LOG=/mnt/e/Code/HackIos/out/probes/fb-console.txt
 {
   echo "== 命中 PE_Video/IOFB/video_console 的文件"
   grep -rl -E 'PE_Video|IOFB|video_console|v_baseAddr' "$D" 2>/dev/null | head -12

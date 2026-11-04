@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/kernel-check6.txt
+OUT=/mnt/e/Code/HackIos/out/probes/kernel-check6.txt
 VO=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/video_console.o
 : > "$OUT"
 echo "== all strings in video_console.o (non-path) ==" >> "$OUT"

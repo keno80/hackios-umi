@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/providers-mockfs-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/providers-mockfs-probe.txt
 WS=/home/unixnu/code/umi-work-pin
 {
   echo "== build_umi_storage_providers.py 全文"

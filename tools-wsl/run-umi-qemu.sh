@@ -9,7 +9,7 @@ TC=${UNIXNU_TOOLCHAIN:-/opt/unixnu-linux}
 export PATH="$TC/CommandLineTools/usr/bin:$TC/bin:/usr/local/bin:/usr/bin:/bin"
 export LC_ALL=C
 cd "$WS" || exit 1
-K=out/umi-xnu/umi/kernel/source-kernel.macho
+K=${KERNEL:-out/umi-xnu/umi/kernel/source-kernel.macho}
 OUT=out/umi-qemu/$NAME
 if [ -e "$OUT" ]; then echo "$OUT 已存在（脚本拒绝覆盖），换个名字"; exit 1; fi
 mkdir -p "$(dirname "$OUT")"

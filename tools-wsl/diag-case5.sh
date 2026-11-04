@@ -12,4 +12,4 @@ find /home/unixnu/code/uefi-umi-b -maxdepth 3 -type l -printf '%p -> %l\n' 2>/de
 echo '== 谁引用 Mu_Basecore 路径（uefi-umi-b 内 .dsc/.fdf/.inc，排除 Build 目录）'
 grep -rln "Mu_Basecore" /home/unixnu/code/uefi-umi-b --include=*.dsc --include=*.fdf --include=*.inc --include=*.dtsi 2>/dev/null | head -10
 echo DONE
-} > /mnt/e/Code/HackIos/out/case-src2.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/case-src2.txt 2>&1

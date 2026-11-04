@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/md0-chain2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/md0-chain2.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree

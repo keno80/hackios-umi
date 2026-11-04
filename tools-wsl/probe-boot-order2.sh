@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/boot-order2.txt
+O=/mnt/e/Code/HackIos/out/probes/boot-order2.txt
 {
   echo "== ConfigureIOKit callers =="
   grep -rn 'ConfigureIOKit' "$W" --include=*.c --include=*.cpp --include=*.h 2>/dev/null | head

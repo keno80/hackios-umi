@@ -46,5 +46,5 @@ echo "== 现有 out/umi 目录"
 ls $WS/out/umi/ 2>&1 | head -15
 echo "== bootimg 的 requires_kernel_header 用法"
 grep -n "requires_kernel_header\|kernel_header\|kernel_path\|BootShim" $WS/sources/UniXNU/scripts/unixnu/bootimg.py | head -20
-} > /mnt/e/Code/HackIos/out/menu-mem2.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/menu-mem2.txt 2>&1
 echo WROTE

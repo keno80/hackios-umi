@@ -2,7 +2,7 @@
 # 取证：ccmd5_di / ccmd4_ltc_di 在哪声明；corecrypto_md5.c 怎么用
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-OUT=/mnt/e/Code/HackIos/out/md5-decl.txt
+OUT=/mnt/e/Code/HackIos/out/probes/md5-decl.txt
 {
   echo "== grep ccmd5_di"
   grep -rn 'ccmd5_di' "$W/libkern" "$W/bsd/libkern" 2>/dev/null | head -10

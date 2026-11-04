@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/prepare-root-launch.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/prepare-root-launch.txt 2>&1
 cd /home/unixnu/code/umi-work-pin || exit 1
 echo "== port prepare_umi_root.py =="
 tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/port-pin-prep-root.py > /tmp/port-pin-prep-root.py

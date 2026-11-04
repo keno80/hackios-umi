@@ -1,7 +1,7 @@
 #!/bin/bash
 # 找 boot_progress_stage 的定义与门控：一个钩子接上 mountroot 之后全部进度
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-bootprogress.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-bootprogress.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

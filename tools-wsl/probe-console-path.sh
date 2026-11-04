@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-LOG=/mnt/e/Code/HackIos/out/xnu-console.txt
+LOG=/mnt/e/Code/HackIos/out/probes/xnu-console.txt
 {
   echo "== 1. DarwinBoot 里的 stdout-path / chosen / console"
   grep -rn -E 'stdout|chosen|console|serial' "$WS/sources/UniXNU/drivers/DarwinBoot/DarwinBootPkg/Driver/DarwinBoot.c" | head -20

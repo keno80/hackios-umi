@@ -5,7 +5,7 @@ K=$T/../build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.uns
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
 NM=/usr/lib/llvm-18/bin/llvm-nm
 OD=/usr/lib/llvm-18/bin/llvm-objdump
-O=/mnt/e/Code/HackIos/out/real-des3.txt
+O=/mnt/e/Code/HackIos/out/probes/real-des3.txt
 {
 echo "== ccdes.h 全部 extern/声明 =="
 grep -n 'extern\|mode(void)\|parity\|weak' "$T/EXTERNAL_HEADERS/corecrypto/ccdes.h" | head -40

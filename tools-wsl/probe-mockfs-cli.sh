@@ -12,5 +12,5 @@ echo "存活=$(pgrep -f 'uefi-fw-build run-05' | head -1) clang=$(pgrep -c clang
 echo "Building=$(grep -c '^Building' $L 2>/dev/null) error=$(grep -c 'error:' $L 2>/dev/null)"
 awk 'length($0)<300' $L 2>/dev/null | grep -E "error:|Error [0-9]|not found" | head -8
 awk 'length($0)<200' $L 2>/dev/null | tail -4
-} > /mnt/e/Code/HackIos/out/mockfs-cli.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/mockfs-cli.txt 2>&1
 echo WROTE

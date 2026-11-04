@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/root-stage.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/root-stage.txt 2>&1
 echo "== whoami / bind restore =="
 id
 bash /home/unixnu/code/umi-work/tools/ensure-dev-bind.sh 2>&1 || \

@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
-O=/mnt/e/Code/HackIos/out/cc-sha2.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-sha2.txt
 {
   echo "== sha2 / final / rng symbols =="
   llvm-nm --defined-only "$K" 2>/dev/null | awk '{print $3}' | grep -E "sha2|_final|ccrng|ccn_|ccmode" | sort | head -40

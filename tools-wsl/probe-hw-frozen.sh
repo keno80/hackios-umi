@@ -1,7 +1,7 @@
 #!/bin/bash
 # 真机停在「exiting boot services」：查画屏器首次触碰是否被提前到 arm_vm_init 内。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-hw-frozen.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-hw-frozen.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

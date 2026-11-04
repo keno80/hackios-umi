@@ -45,5 +45,5 @@ for line in txt.splitlines():
 PYEOF
 echo "== 采集里的 iomem / meminfo 是否存过"
 find /mnt/e/Code/HackIos/out/phone3 /mnt/e/Code/HackIos/phone-capture -iname '*iomem*' -o -iname '*meminfo*' 2>/dev/null | head -5
-} > /mnt/e/Code/HackIos/out/menu-mem.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/menu-mem.txt 2>&1
 echo WROTE

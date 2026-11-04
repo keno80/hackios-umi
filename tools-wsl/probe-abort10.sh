@@ -5,7 +5,7 @@ K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPM
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 NM=$(command -v llvm-nm || command -v nm)
 OD=$(command -v llvm-objdump || command -v objdump)
-OUT=/mnt/e/Code/HackIos/out/abort10.txt
+OUT=/mnt/e/Code/HackIos/out/probes/abort10.txt
 {
   echo "== pc/lr symbolize"
   $NM -n --defined-only "$K" > /tmp/k.syms

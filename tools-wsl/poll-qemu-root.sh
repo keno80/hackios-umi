@@ -10,5 +10,5 @@ D=/home/unixnu/code/umi-work-pin/out/umi-qemu/run-06-root
   tail -8 /home/unixnu/code/UniXNU-main/out/unixnu-logs/qemu-run-06-root.log 2>/dev/null
   echo "== 在跑?"; pgrep -af "run_umi_qemu|gdb-stop-root" | head -3
   echo "== 停点"; [ -f "$D/gdb-stop.json" ] && head -c 900 "$D/gdb-stop.json"
-} > /mnt/e/Code/HackIos/out/qemu-root-poll.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/qemu-root-poll.txt 2>&1
 echo OK

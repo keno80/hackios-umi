@@ -4,7 +4,7 @@ import os
 import re
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/syms.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/syms.txt', 'w')
 W = '/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work'
 
 

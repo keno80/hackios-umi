@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/ram-profile.txt
+OUT=/mnt/e/Code/HackIos/out/probes/ram-profile.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 echo "== 1. prepare 里 payload_profile=ram 会改什么" >> "$OUT"

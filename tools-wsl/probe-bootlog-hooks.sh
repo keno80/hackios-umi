@@ -1,7 +1,7 @@
 #!/bin/bash
 # 坐实「PE_lockdown_iokit 是不是 kernel_bootstrap_log 的最后一条」+ 画屏补丁到底钩了谁
 set -u
-OUT=/mnt/e/Code/HackIos/out/d-pe-lockdown3.txt
+OUT=/mnt/e/Code/HackIos/out/probes/d-pe-lockdown3.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

@@ -16,5 +16,5 @@ ls -l /home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB/AARCH64/FatPkg/En
 echo "== seed-data-grow.py 头部"
 head -30 /home/unixnu/code/umi-work-pin/devices/umi/package/data-store/seed-data-grow.py
 } > $D/info-out.txt 2>&1
-cp $D/info-out.txt /mnt/e/Code/HackIos/out/fw06-info.txt
+cp $D/info-out.txt /mnt/e/Code/HackIos/out/probes/fw06-info.txt
 echo WROTE

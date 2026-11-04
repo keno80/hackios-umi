@@ -12,5 +12,5 @@ echo "== data-store 目录（packed APFS seed 的造/取处）"
 ls /home/unixnu/code/umi-work-pin/devices/umi/package/data-store/ 2>&1 | head -20
 echo "== 工作区里有没有现成 seed / NXSB 镜像"
 find /home/unixnu/code/umi-work-pin/out -maxdepth 4 -iname '*ramdisk*' -o -maxdepth 4 -iname '*data*.img' 2>/dev/null | head -10
-} > /mnt/e/Code/HackIos/out/fw06-pre.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/fw06-pre.txt 2>&1
 echo WROTE

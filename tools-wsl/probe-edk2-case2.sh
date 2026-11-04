@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/edk2-case2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/edk2-case2.txt
 LOG=/home/unixnu/code/umi-work-pin/out/umi-fw-run-01/cli.log
 {
   echo "== cli.log 大小/时间"

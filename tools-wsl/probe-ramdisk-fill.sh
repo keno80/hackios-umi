@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/ramdisk-fill-and-amfi.txt
+OUT=/mnt/e/Code/HackIos/out/probes/ramdisk-fill-and-amfi.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 U=/home/unixnu/code/UniXNU

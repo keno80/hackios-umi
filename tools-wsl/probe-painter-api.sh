@@ -1,7 +1,7 @@
 #!/bin/bash
 # 读画屏补丁的对外接口：新钩子要调谁、startup.c 那处怎么挂的
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-painter-api.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-painter-api.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 D=/home/unixnu/code/umi-work-pin/devices/umi/patches/umi-xnu

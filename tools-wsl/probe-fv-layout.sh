@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 B=/home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB
-LOG=/mnt/e/Code/HackIos/out/fv-layout.txt
+LOG=/mnt/e/Code/HackIos/out/probes/fv-layout.txt
 {
   echo "== FV 目录"
   ls -la "$B/FV" | head -20

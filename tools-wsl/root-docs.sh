@@ -14,5 +14,5 @@
   find devices/umi -maxdepth 2 -name "*.md" 2>/dev/null | head -10
   echo "== run_umi_qemu.py 里 root-volume 的注释"
   grep -n "root" tools/run_umi_qemu.py | head -40
-} > /mnt/e/Code/HackIos/out/root-docs.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/root-docs.txt 2>&1
 echo WROTE

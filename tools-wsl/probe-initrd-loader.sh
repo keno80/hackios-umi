@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/initrd-loader.txt
+OUT=/mnt/e/Code/HackIos/out/probes/initrd-loader.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 say "== 0. /home/unixnu/code 顶层 =="

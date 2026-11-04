@@ -9,5 +9,5 @@ cd /home/unixnu/code/umi-work-pin || exit 1
   echo "########## gdb-stop.py 抓 memory 的开关"
   grep -n "add_argument" devices/umi/bringup/tools/gdb-stop.py 2>/dev/null | head -40 || \
   grep -rn "add_argument" sources/UniXNU/scripts/qemu-entry/gdb-stop.py | head -40
-} > /mnt/e/Code/HackIos/out/snapshot-flow.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/snapshot-flow.txt 2>&1
 echo WROTE

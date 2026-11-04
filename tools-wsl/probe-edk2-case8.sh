@@ -1,6 +1,6 @@
 #!/bin/bash
 # 用 BaseTools 自己的 Edk2Path+PathClass 复现 FILE_CASE_MISMATCH
-O=/mnt/e/Code/HackIos/out/edk2-case8.txt
+O=/mnt/e/Code/HackIos/out/probes/edk2-case8.txt
 PY=/home/unixnu/code/Mu_Basecore/BaseTools/Source/Python
 WS=/home/unixnu/code/uefi-umi-b
 PP="$WS:$WS/Platforms/Xiaomi:/home/unixnu/code/umi-work-pin/out/unixnu/umi/tree/package:/home/unixnu/code/Mu_Basecore:$WS/Common/Mu:$WS/Common/Mu_OEM_Sample:$WS/Silicon/Qualcomm:$WS/Silicon/Silicium"

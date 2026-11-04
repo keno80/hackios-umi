@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-O=/mnt/e/Code/HackIos/out/mkcrypto.txt
+O=/mnt/e/Code/HackIos/out/probes/mkcrypto.txt
 {
   echo "== tail file hygiene =="
   T=/mnt/e/Code/HackIos/tools-wsl/umi_crypto_kit_tail.c

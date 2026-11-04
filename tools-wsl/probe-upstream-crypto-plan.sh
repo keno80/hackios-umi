@@ -3,7 +3,7 @@ set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 D=/home/unixnu/code/umi-work-pin/devices/umi
 K=/home/unixnu/code/umi-work-pin/out/umi/xnu/stage2/EFI/UniXNU/Payloads/kernel.macho
-O=/mnt/e/Code/HackIos/out/upstream-crypto-plan.txt
+O=/mnt/e/Code/HackIos/out/probes/upstream-crypto-plan.txt
 {
   echo "== rng symbols (in-tree + cc14) =="
   llvm-nm "$K" 2>/dev/null | grep -iE '_cc(rng|nr)' | head -20

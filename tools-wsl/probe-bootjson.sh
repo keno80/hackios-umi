@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-bootjson.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-bootjson.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 echo "== boot.json（打包自校验报告）" >> "$OUT"
@@ -27,6 +27,6 @@ PY
 echo "== board.toml 里 bootimg 段（dtb_node 有没有）" >> "$OUT"
 grep -nA 8 -E "^\[bootimg" "$WS/devices/umi/board.toml" >> "$OUT" 2>&1
 echo "== 拷贝到 Windows 侧" >> "$OUT"
-cp -f "$WS/out/umi/boot/umi-uefi-menu.img" /mnt/e/Code/HackIos/out/umi-uefi-menu.img && sha256sum /mnt/e/Code/HackIos/out/umi-uefi-menu.img >> "$OUT" 2>&1
+cp -f "$WS/out/umi/boot/umi-uefi-menu.img" /mnt/e/Code/HackIos/out/images/umi-uefi-menu.img && sha256sum /mnt/e/Code/HackIos/out/images/umi-uefi-menu.img >> "$OUT" 2>&1
 echo "== fastboot 版本（Windows 侧另跑）" >> "$OUT"
 echo "WROTE"

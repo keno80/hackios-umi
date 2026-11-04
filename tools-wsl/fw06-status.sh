@@ -1,7 +1,7 @@
 #!/bin/bash
 # run-06 进度摘要
 L=/home/unixnu/code/umi-work-pin/out/umi-fw/run-06/firmware.log
-O=/mnt/e/Code/HackIos/out/fw06-status.txt
+O=/mnt/e/Code/HackIos/out/probes/fw06-status.txt
 FD=/home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd
 {
 if [ ! -f "$L" ]; then echo "日志还没生成"; tail -5 /home/unixnu/code/umi-work-pin/out/umi-fw/run-06.outer.log; exit 0; fi

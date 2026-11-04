@@ -2,7 +2,7 @@
 # 在源码树里找「真实现」的声明位置，确认能否直接 extern 调用
 set -u
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/real-decl.txt
+O=/mnt/e/Code/HackIos/out/probes/real-decl.txt
 {
 for s in cc14_ccaes_cbc_encrypt_mode cc14_ccaes_cbc_decrypt_mode \
          cc14_ccdes3_cbc_encrypt_mode cc14_ccdes3_cbc_decrypt_mode \

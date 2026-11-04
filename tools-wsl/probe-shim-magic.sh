@@ -3,7 +3,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 UEFI=/home/unixnu/code/uefi-umi-b
-OUT=/mnt/e/Code/HackIos/out/probe-shim.txt
+OUT=/mnt/e/Code/HackIos/out/probes/probe-shim.txt
 exec > "$OUT" 2>&1
 python3 - "$WS/out/umi/boot/umi-uefi-menu-xnu.img" "$UEFI/Build/umiPkg/DEBUG_CLANGPDB/FV/SILICIUM_UEFI.fd" <<'PY'
 import struct, sys, zlib

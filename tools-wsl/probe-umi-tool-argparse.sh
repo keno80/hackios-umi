@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/umi-tool-argparse.txt
+OUT=/mnt/e/Code/HackIos/out/probes/umi-tool-argparse.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 F=/home/unixnu/code/UniXNU-umi/bringup/tools/build_umi_xnu.py

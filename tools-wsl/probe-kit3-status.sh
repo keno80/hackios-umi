@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 R=/home/unixnu/code/umi-work-pin/out/umi-qemu/run-12-kit3
-O=/mnt/e/Code/HackIos/out/qemu12-status.txt
+O=/mnt/e/Code/HackIos/out/probes/qemu12-status.txt
 {
   echo "== 进程（qemu / runner）"
   pgrep -af 'qemu-system-aarch64|run_umi_qemu' | head -4

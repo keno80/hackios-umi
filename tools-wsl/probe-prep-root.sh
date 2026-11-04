@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/prep-root.txt
+OUT=/mnt/e/Code/HackIos/out/probes/prep-root.txt
 R=/home/unixnu/code/umi-work-pin
 : > "$OUT"
 echo "== head of devices/umi/scripts/prepare-xnu-source.py ==" >> "$OUT"

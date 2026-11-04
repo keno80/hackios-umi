@@ -2,7 +2,7 @@
 set -u
 W=/home/unixnu/code/umi-work-pin
 K=$W/out/umi-xnu/umi/kernel/source-kernel.macho
-OUT=/mnt/e/Code/HackIos/out/a2l.txt
+OUT=/mnt/e/Code/HackIos/out/probes/a2l.txt
 export PATH=/usr/lib/llvm-18/bin:$PATH
 {
   echo "== llvm-addr2line 可用性"

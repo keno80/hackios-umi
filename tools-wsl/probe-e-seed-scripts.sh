@@ -1,7 +1,7 @@
 #!/bin/bash
 # E 步补测：三个 data-seed 脚本的 Mac 依赖到底卡在哪一步，有没有非 macOS 分支
 set -u
-OUT=/mnt/e/Code/HackIos/out/e-seed-scripts.txt
+OUT=/mnt/e/Code/HackIos/out/probes/e-seed-scripts.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 S=/home/unixnu/code/UniXNU-main

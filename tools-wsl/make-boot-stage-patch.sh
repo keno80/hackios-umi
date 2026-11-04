@@ -1,7 +1,7 @@
 #!/bin/bash
 # 落成 umi-boot-stage 补丁：把 boot_progress_stage 的 no-op 桩改接画屏器。
 set -eu
-OUT=/mnt/e/Code/HackIos/out/f-make-patch.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-make-patch.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-OUT=/mnt/e/Code/HackIos/out/storageabi-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/storageabi-probe.txt
 {
   echo "== storage-abi/include 内容（已在编译 -I 列表里）"
   find "$WS/out/umi/storage-abi" -maxdepth 4 2>&1 | head -40

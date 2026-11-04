@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/root-entry2.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/root-entry2.txt 2>&1
 echo "== cli.py tail =="
 tail -30 /home/unixnu/code/umi-work-pin/sources/UniXNU/scripts/unixnu/cli.py
 echo "== candidates =="

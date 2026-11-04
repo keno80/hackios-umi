@@ -16,5 +16,5 @@ grep -rIn "owned_memory\|OWNED_MEMORY\|payload_bytes\|0x130000000\|124" $WS/devi
 
 echo "== FD_BASE 0x9fc00000 在哪些地方出现"
 grep -rIn "9fc00000\|FD_BASE" $WS/devices/umi $WS/sources/UniXNU/scripts 2>/dev/null | head -20
-} > /mnt/e/Code/HackIos/out/menu-img.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/menu-img.txt 2>&1
 echo WROTE

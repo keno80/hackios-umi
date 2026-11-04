@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/patch-mechanism.txt
+OUT=/mnt/e/Code/HackIos/out/probes/patch-mechanism.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 W=/home/unixnu/code/umi-work-pin

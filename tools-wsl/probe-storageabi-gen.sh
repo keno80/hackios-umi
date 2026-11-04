@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-OUT=/mnt/e/Code/HackIos/out/storageabi-gen.txt
+OUT=/mnt/e/Code/HackIos/out/probes/storageabi-gen.txt
 {
   echo "== build_umi_native_ufs.py 中 storage-abi 相关"
   grep -n "storage-abi\|abi" "$WS/tools/build_umi_native_ufs.py" | head -20

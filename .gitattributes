@@ -8,6 +8,7 @@
 *.toml text eol=lf
 *.patch text eol=lf
 *.diff text eol=lf
+*.inc  text eol=lf
 *.inf  text eol=lf
 
 # Windows 侧批处理保持 CRLF

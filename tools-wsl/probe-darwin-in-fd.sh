@@ -2,7 +2,7 @@
 set -u
 U=/home/unixnu/code/uefi-umi-b
 B=$U/Build/umiPkg/DEBUG_CLANGPDB
-LOG=/mnt/e/Code/HackIos/out/darwinboot-in-fd.txt
+LOG=/mnt/e/Code/HackIos/out/probes/darwinboot-in-fd.txt
 {
   echo "== 1. Build 树里的 DarwinBoot 产物"
   find "$B/AARCH64" -iname '*DarwinBoot*' | head -20

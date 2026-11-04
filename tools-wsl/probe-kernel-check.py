@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/kernel-check.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/kernel-check.txt', 'w')
 WS = '/home/unixnu/code/umi-work-pin'
 KER = WS + '/out/umi-xnu/umi/kernel/source-kernel.macho'
 

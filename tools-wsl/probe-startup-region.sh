@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/startup_region.txt
+O=/mnt/e/Code/HackIos/out/probes/startup_region.txt
 {
 echo "===== startup.c 200..270 ====="
 sed -n '200,270p' "$X/osfmk/kern/startup.c" | cat -n | sed 's/^/   /'

@@ -1,7 +1,7 @@
 #!/bin/bash
 # boot-progress 能否在 umi 构建里点亮：实现件、构建脚本、绑屏入口、gate 开关。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-bp-light.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-bp-light.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 U=/home/unixnu/code/UniXNU-umi

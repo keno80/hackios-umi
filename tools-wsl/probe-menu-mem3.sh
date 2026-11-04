@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-mem3.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-mem3.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 cd "$WS" || exit 1

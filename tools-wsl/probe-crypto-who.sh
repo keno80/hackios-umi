@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/crypto-who.txt
+O=/mnt/e/Code/HackIos/out/probes/crypto-who.txt
 {
   echo "== register_crypto_functions callers =="
   grep -rn "register_crypto_functions" "$X" --include=*.c --include=*.cpp 2>/dev/null | head -10

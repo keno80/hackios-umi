@@ -8,7 +8,7 @@ FAKEROOT=$TREE/.cache/fakeroot
 TC=${UNIXNU_TOOLCHAIN:-/opt/unixnu-linux}
 CLT=$TC/CommandLineTools/usr
 XCTC=$TC/XcodeDefault.xctoolchain/usr
-OUT=/mnt/e/Code/HackIos/out/nativeufs-step.txt
+OUT=/mnt/e/Code/HackIos/out/probes/nativeufs-step.txt
 export PATH="$CLT/bin:$TC/bin:$PATH"
 export LC_ALL=C CLT_PREFIX=$CLT XCTOOLCHAIN_PREFIX=$XCTC
 export XNU_TOOLCHAIN_BIN="$CLT/bin $XCTC/bin"

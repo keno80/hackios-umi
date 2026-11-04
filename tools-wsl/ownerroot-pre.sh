@@ -19,5 +19,5 @@
   head -20 tools/prepare_umi_root_policy.py
   echo "== 现有内核产物"
   ls -l out/umi-xnu/umi/kernel/ 2>&1 | head -12
-} > /mnt/e/Code/HackIos/out/ownerroot-pre.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/ownerroot-pre.txt 2>&1
 echo WROTE
