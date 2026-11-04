@@ -1,0 +1,35 @@
+--- a/iokit/bsddev/IOKitBSDInit.cpp
++++ b/iokit/bsddev/IOKitBSDInit.cpp
+@@ -1588,6 +1588,10 @@
+ 	if (task == kernel_task || entitlement == NULL || value == NULL) {
+ 		return false;
+ 	}
++	/* umi: no AMFI KPI is registered, so every query means "no entitlement". */
++	if (amfi == NULL) {
++		return false;
++	}
+ 	proc_t proc = (proc_t)get_bsdtask_info(task);
+ 
+ 	kern_return_t ret = amfi->OSEntitlements.queryEntitlementStringWithProc(
+@@ -1619,6 +1623,10 @@
+ 	if (task == kernel_task || entitlement == NULL) {
+ 		return false;
+ 	}
++	/* umi: no AMFI KPI is registered, so every query means "no entitlement". */
++	if (amfi == NULL) {
++		return false;
++	}
+ 	proc_t proc = (proc_t)get_bsdtask_info(task);
+ 
+ 	kern_return_t ret = amfi->OSEntitlements.queryEntitlementBooleanWithProc(
+@@ -1650,6 +1658,10 @@
+ 
+ 	/* Validate input arguments */
+ 	if (task == kernel_task || entitlement == NULL) {
++		return NULL;
++	}
++	/* umi: no AMFI KPI is registered, so every query means "no entitlement". */
++	if (amfi == NULL) {
+ 		return NULL;
+ 	}
+ 	proc_t proc = (proc_t)get_bsdtask_info(task);
