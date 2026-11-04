@@ -21,7 +21,7 @@ diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
  LEXT(start_first_cpu)
 +#if UMI_EARLY_TRACE
 +	// Band 1 (red): the kernel image really started executing.
-+	UMI_BAND 1, 0xFF0000FF, x0
++	UMI_BAND 1, 0xFFFF0000, x0
 +	UMI_TRACE 0x01, x0
 +#endif
  
@@ -55,7 +55,7 @@ diff --git a/osfmk/arm64/start.s b/osfmk/arm64/start.s
 +	MOV64 x10, (0xb0000000 | ARM_TTE_TYPE_BLOCK | ARM_TTE_VALID | ARM_TTE_BLOCK_AF | ARM_TTE_BLOCK_SH(SH_OUTER_MEMORY) | ARM_TTE_BLOCK_ATTRINDX(CACHE_ATTRINDX_DISABLE) | ARM_TTE_BLOCK_PNX | ARM_TTE_BLOCK_NX)
 +	str x10, [x9]
 +	// Band 2 (blue): bootstrap page tables built, console slot installed.
-+	UMI_BAND 2, 0xFFFF0000, x20
++	UMI_BAND 2, 0xFF0000FF, x20
 +	UMI_TRACE 0x03, x2
 +#endif
  	b Lbootstrap_tables_ready

@@ -29,7 +29,9 @@
  * the MMU is still off, so the phone screen itself carries the progress and no
  * reboot-and-read cycle is needed to learn whether the kernel started at all.
  * Scratch x11..x17 only; named labels so they cannot clash with the numeric
- * locals inside UMI_TRACE_BODY. */
+ * locals inside UMI_TRACE_BODY. Filled with 4-byte stores and the byte count
+ * masked to 4, because a row pitch that is not a multiple of 8 would leave STP
+ * misaligned and make an 8-byte countdown underflow into an endless loop. */
 .macro UMI_BAND slot, colour, base
 	ldr	x11, [\base, #0x28]
 	cbz	x11, Lumi_band\slot\()_done
@@ -42,13 +44,14 @@
 	mul	x14, x14, x12
 	add	x11, x11, x14
 	mul	x13, x13, x12
-	cmp	x13, #8
+	bic	x13, x13, #3
+	cmp	x13, #4
 	b.lo	Lumi_band\slot\()_done
 	mov	w17, #(\colour & 0xffff)
 	movk	w17, #((\colour >> 16) & 0xffff), lsl #16
 Lumi_band\slot\()_loop:
-	stp	w17, w17, [x11], #8
-	subs	x13, x13, #8
+	str	w17, [x11], #4
+	subs	x13, x13, #4
 	b.hi	Lumi_band\slot\()_loop
 	dsb	sy
 Lumi_band\slot\()_done:
