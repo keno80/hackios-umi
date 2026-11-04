@@ -1,7 +1,8 @@
 #!/bin/bash
-# R 步：打「mockfs 假根 + 32 发走查件（23 unix + 9 mach）+ EL0 IN/OUT 逐号 + 28z zidx 判据」真机档。
+# S 步：打「mockfs 假根 + 走查件（unix 面 23 发 + Mach 面 13 个不同 trap 号，含 vm/port 面 -10/-14/-21/-12）
+#        + EL0 IN/OUT 逐号 + 28z zidx 判据」真机档。
 # 内核用 QEMU 验过的同一份 source-kernel.macho（不带 --early-trace），
-# 这样屏上判据与 QEMU 侧逐字节同源；INITRD 换成带 mach 段的走查件。
+# 这样屏上判据与 QEMU 侧逐字节同源；INITRD 换成带 vm/port 段的走查件。
 set -u
 LOG=/mnt/e/Code/HackIos/out/probes/repack-walk.txt
 : > "$LOG"
@@ -35,20 +36,22 @@ F2=$(strings -a "$K" | grep -c -F 'REAP cpid=')
 F3=$(strings -a "$K" | grep -c -F 'WAIT4 reaped-return')
 # Q 步新增：走查件本身的闸——内核有探针但件还是老件，上机就是白跑一趟
 W1=$(strings -a "$INITRD" | grep -c -F 'UMI-WALK-Q-PIPE-PAYLOAD')
-echo "mockfs=$M 挂根探针=$P init=$A1/$A2/$A3 el0=$A5/$A6 mach表=$MS/$MO zidx判据=$Z fork=$F1/$F2/$F3 走查件Q=$W1"
+# S 步新增：件必须带 vm/port 段（-10/-14/-21/-12），否则这档上机什么新证据都拿不到
+W2=$(strings -a "$INITRD" | grep -c -F 'UMI-WALK-S-VM-PAYLOAD')
+echo "mockfs=$M 挂根探针=$P init=$A1/$A2/$A3 el0=$A5/$A6 mach表=$MS/$MO zidx判据=$Z fork=$F1/$F2/$F3 走查件Q=$W1 走查件S=$W2"
 if [ "$M" -lt 50 ] || [ "$P" -ne 1 ] || [ "$A1" -lt 1 ] || [ "$A2" -lt 1 ] || \
    [ "$A3" -lt 1 ] || [ "$A5" -lt 1 ] || [ "$A6" -lt 1 ] || \
    [ "$MS" -lt 1 ] || [ "$MO" -lt 1 ] || [ "$Z" -lt 1 ] || \
-   [ "$F1" -lt 1 ] || [ "$F2" -lt 1 ] || [ "$F3" -lt 1 ] || [ "$W1" -lt 1 ]; then
-  echo "== 拒绝出图：内核缺假根驱动、EL0 逐号探针、mach 去重表、28z zidx 判据、fork/wait 闭环探针，或走查件不是 Q 版"
-  echo "   （mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A5/$A6 mach表=$MS/$MO zidx判据=$Z fork=$F1/$F2/$F3 走查件Q=$W1）"
+   [ "$F1" -lt 1 ] || [ "$F2" -lt 1 ] || [ "$F3" -lt 1 ] || [ "$W1" -lt 1 ] || [ "$W2" -lt 1 ]; then
+  echo "== 拒绝出图：内核缺假根驱动、EL0 逐号探针、mach 去重表、28z zidx 判据、fork/wait 闭环探针，或走查件不是 S 版"
+  echo "   （mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A5/$A6 mach表=$MS/$MO zidx判据=$Z fork=$F1/$F2/$F3 走查件Q=$W1 走查件S=$W2）"
   echo "   上机一次的成本远高于一道断言，别把手机时间花在没带判据的档上。"
   exit 1
 fi
 echo
 echo "== 1. payload 卷 =="
 python3 /mnt/e/Code/HackIos/tools-wsl/build-xnu-payload.py \
-  --kernel "$K" --title "R-WALK4 Mi 10 8G" --mockfs-initrd "$INITRD"
+  --kernel "$K" --title "S-WALK5 Mi 10 8G" --mockfs-initrd "$INITRD"
 echo "payload rc=$?"
 echo
 echo "== 2. bootimg + 自检 + 交付"

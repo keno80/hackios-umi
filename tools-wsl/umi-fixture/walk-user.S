@@ -9,6 +9,10 @@
 // Mach 面（R 步起）号表取自本树 osfmk/kern/syscall_sw.c 的 mach_trap_table[]，x16 用负号：
 //   task_self=-28 host_self=-29 thread_self=-27 mach_reply=-26 timebase_info=-89
 //   port_allocate=-16 port_mod_refs=-19 port_deallocate=-18 mach_msg=-31
+// S 步补的 Mach 面（实参顺序取自本树 osfmk/mach/mach_traps.h 的原型）：
+//   vm_allocate=-10 vm_protect=-14 port_insert_right=-21 vm_deallocate=-12
+//   注意本树 mach/port.h:270 的 MACH_PORT_RIGHT_SEND/RECEIVE 是 0/1（不是 Darwin 记忆的 -1/-2），
+//   kern_return.h:151 的 17 是 KERN_INVALID_RIGHT（KERN_INVALID_CAPABILITY 在本树是 20）。
 .text
 .global _start, _checkpoint
 _start:
@@ -405,6 +409,64 @@ _after_read:
   mrs x9, nzcv
   orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
   str x9, [x22, #248]
+
+  // ---- S 步：vm 面三发 + 端口权利补全。号都取自 syscall_sw.c 的 mach_trap_table，
+  //      实参顺序取自 osfmk/mach/mach_traps.h 的原型（64 位下参数就是 x0..x(n-1)）。
+  // [34] _kernelrpc_mach_vm_allocate_trap(-10)(target, mach_vm_offset_t *addr, size, flags)
+  //      flags=VM_FLAGS_ANYWHERE(1)；出参是 8 字节的 mach_vm_offset_t，不是 4 字节。
+  mov x0, x25
+  adrp x1, _vmaddr@PAGE
+  add x1, x1, _vmaddr@PAGEOFF
+  mov x2, #0x4000
+  mov x3, #1
+  mov x16, #-10
+  svc #0x80
+  str x0, [x19, #256]
+  mrs x9, nzcv
+  orr x9, x9, #0x100
+  str x9, [x22, #256]
+  adrp x27, _vmaddr@PAGE
+  add x27, x27, _vmaddr@PAGEOFF
+
+  // [35] _kernelrpc_mach_vm_protect_trap(-14)(target, address, size, set_maximum, new_protection)
+  //      new_protection=VM_PROT_READ|VM_PROT_WRITE=3
+  mov x0, x25
+  ldr x1, [x27]
+  mov x2, #0x4000
+  mov x3, #0
+  mov x4, #3
+  mov x16, #-14
+  svc #0x80
+  str x0, [x19, #264]
+  mrs x9, nzcv
+  orr x9, x9, #0x100
+  str x9, [x22, #264]
+
+  // [36] _kernelrpc_mach_port_insert_right_trap(-21)(target, name, poly, polyPoly)
+  //      标准写法是 poly == name（本树 port.h 注 MACH_MSG_TYPE_MAKE_SEND「Must hold receive right」，
+  //      [30] 的 receive right 就在 name 里）。poly=0 是 MACH_PORT_NULL，内核直接按名字查不到，
+  //      实测回 0xf=KERN_INVALID_NAME（本树 kern_return.h:143）——那是用法错的正确拒绝，不是闸。
+  mov x0, x25
+  ldr w1, [x26]
+  ldr w2, [x26]
+  mov x3, #20
+  mov x16, #-21
+  svc #0x80
+  str x0, [x19, #272]
+  mrs x9, nzcv
+  orr x9, x9, #0x100
+  str x9, [x22, #272]
+
+  // [37] _kernelrpc_mach_vm_deallocate_trap(-12)(target, address, size) —— 收尾，验回退路径
+  mov x0, x25
+  ldr x1, [x27]
+  mov x2, #0x4000
+  mov x16, #-12
+  svc #0x80
+  str x0, [x19, #280]
+  mrs x9, nzcv
+  orr x9, x9, #0x100
+  str x9, [x22, #280]
   b _checkpoint
 
 _child:
@@ -431,11 +493,16 @@ _old_length:
 _walk:
   .quad 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
   .quad 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+  .quad 0, 0, 0, 0, 0, 0, 0, 0
 _nz:
   .quad 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
   .quad 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+  .quad 0, 0, 0, 0, 0, 0, 0, 0
 _wmsg:
   .ascii "UMI-WALK-Q-PIPE-PAYLOAD"
+  .byte 0
+_stag:
+  .ascii "UMI-WALK-S-VM-PAYLOAD"   // S 步件身份标记：出图闸靠它挡住「内核新但件还是 R 版」
   .byte 0
 _pibuf:
   .space 64
@@ -457,6 +524,9 @@ _tb:
   .quad 0          // mach_timebase_info_data_t：numer/denom 各 32 位
 _pname:
   .long 0, 0       // mach_port_allocate 的出参（mach_port_name_t = 32 位）
+.balign 8
+_vmaddr:
+  .quad 0          // vm_allocate 的出参（mach_vm_offset_t = 64 位）
 .balign 16
 _msg:
   .space 64        // mach_msg 的缓冲区；option=0 时内核不会碰它，给个合法地址只为稳妥
