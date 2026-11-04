@@ -16,8 +16,13 @@ OUT=/mnt/e/Code/HackIos/out/probes/web-launch.txt
   echo "== 日志头"
   head -3 /var/log/umi-web.log
   echo "== state 自检"
-  curl -s 'http://127.0.0.1:8765/api/state?lines=6' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("keys:", len(d)); print({k: d[k] for k in ("phase","run","cpu","mem_used","ncpu")}); print("idle:", d["idle"]); print("lanes:", len(d["lanes"]), "log:", len(d["log"]["lines"]), "patches:", d["patches"], "arts:", [(a["name"],a["size"]) for a in d["artifacts"]]); print("tasks:", len(d["tasks"]), "notes:", d["notes"])'
+  curl -s 'http://127.0.0.1:8765/api/state?lines=6' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("keys:", len(d)); print({k: d[k] for k in ("phase","run","cpu","mem_used","ncpu")}); print("idle:", d["idle"]); print("lanes:", len(d["lanes"]), "log:", len(d["log"]["lines"]), "patches:", d["patches"], "arts:", [(a["name"],a["size"]) for a in d["artifacts"]]); print("alive:", d["alive"], "pid:", d["pid"], "elapsed:", d["elapsed"]); print("cmd:", (d["cmd"] or "(无任务)")[:200]); print("log_path:", d["log_path"])'
   echo "== html 自检"
-  curl -s http://127.0.0.1:8765/ | wc -c
+  curl -s http://127.0.0.1:8765/ > /tmp/web-page.html; wc -c < /tmp/web-page.html
+  for id in cmd cmdmeta cmdpath bp be bl br bk clock log; do
+    grep -q "id=\"$id\"" /tmp/web-page.html && echo "元素 $id 在" || echo "元素 $id 不在"
+  done
+  echo "== 已删项自检（应为 0）"
+  echo "select bi: $(grep -c 'id="bi"' /tmp/web-page.html)  footer: $(grep -c '<footer>' /tmp/web-page.html)  只读文案: $(grep -c '面板只读' /tmp/web-page.html)"
 } > "$OUT" 2>&1
 echo WROTE "$OUT"
