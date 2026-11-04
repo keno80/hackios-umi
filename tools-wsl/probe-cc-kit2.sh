@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
-O=/mnt/e/Code/HackIos/out/cc-kit2.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-kit2.txt
 {
   echo "== struct crypto_functions (crypto.h) =="
   sed -n '/^typedef struct crypto_functions/,/crypto_functions;/p' "$X/libkern/libkern/crypto/crypto.h"

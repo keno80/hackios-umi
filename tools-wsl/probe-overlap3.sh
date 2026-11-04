@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-overlap3.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-overlap3.txt
 python3 - > "$OUT" 2>&1 <<'PY'
 import sys
 sys.path.insert(0, "/home/unixnu/code/umi-work-pin/tools")

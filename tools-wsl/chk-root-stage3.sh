@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/root-stage3.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/root-stage3.txt 2>&1
 echo "== bind =="
 tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/ensure-dev-bind.sh > /tmp/ensure-dev-bind.sh
 bash /tmp/ensure-dev-bind.sh

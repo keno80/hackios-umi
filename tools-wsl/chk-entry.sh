@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/root-entry.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/root-entry.txt 2>&1
 echo "== how tools invoke upstream CLI =="
 grep -n -E "upstream_parser|unixnu\.py|__main__|subprocess|sys.path" /home/unixnu/code/umi-work-pin/tools/prepare_umi_root.py | head -20
 echo "--"

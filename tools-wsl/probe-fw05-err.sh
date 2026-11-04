@@ -10,5 +10,5 @@ N=$(grep -n "EnhancedFatDxe/Fat/OUTPUT/Info.obj" $L | tail -1 | cut -d: -f1)
 sed -n "$((N-25)),$((N+12))p" $L | cut -c1-260
 echo "== --data-ramdisk 定义与 seed 契约（78..96）"
 sed -n '50,56p;78,96p' $F
-} > /mnt/e/Code/HackIos/out/fw05-err.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/fw05-err.txt 2>&1
 echo WROTE

@@ -18,5 +18,5 @@ grep -n "last_func\|cur->func\|cur->message\|kernel_bootstrap_log\|startup_threa
 echo "== source: table entry containing sysctl ==" >> "$OUT"
 grep -n "sysctl" "$X/osfmk/kern/startup.c" >> "$OUT" 2>&1 | head -20
 echo DONE >> "$OUT"
-cp "$OUT" /mnt/e/Code/HackIos/out/stuck2.txt
+cp "$OUT" /mnt/e/Code/HackIos/out/probes/stuck2.txt
 echo copied

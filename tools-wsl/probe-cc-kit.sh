@@ -4,7 +4,7 @@ WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
 F=$WS/out/umi-xnu/feeds/xnu-0b4b910d
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
-O=/mnt/e/Code/HackIos/out/cc-kit.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-kit.txt
 {
   echo "== designated-init kit anywhere in tree/feeds =="
   grep -rn "ccsha1_di" "$X" "$F" 2>/dev/null | grep -v "corecrypto_sha1.c\|register_crypto.h" | head -10

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/boot-order.txt
+O=/mnt/e/Code/HackIos/out/probes/boot-order.txt
 {
   echo "== other definitions of crypto_random_kmem_ctx_size =="
   grep -rn 'crypto_random_kmem_ctx_size' "$W" --include=*.c --include=*.h 2>/dev/null | head -20

@@ -9,7 +9,7 @@ exec python3 /usr/local/bin/umi-mon.py "$@"
 EOF
 chmod 755 /usr/local/bin/uefi-mon
 echo "== 单帧自检"
-UMI_ONCE=1 python3 /usr/local/bin/umi-mon.py > /mnt/e/Code/HackIos/out/mon-frame.txt 2>&1 || echo "SELFTEST RC=$?"
+UMI_ONCE=1 python3 /usr/local/bin/umi-mon.py > /mnt/e/Code/HackIos/out/probes/mon-frame.txt 2>&1 || echo "SELFTEST RC=$?"
 echo "== 可用 GUI 终端"
 for t in xterm xfce4-terminal gnome-terminal konsole weston-terminal urxvt; do
   p=$(command -v $t 2>/dev/null) && echo "  $t -> $p"

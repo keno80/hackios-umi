@@ -40,5 +40,5 @@ print('镜像 sha256:', hashlib.sha256(d).hexdigest())
 print('镜像字节:', len(d))
 PY
 echo "== 拷到 Windows 侧"
-cp -f "$IMG" /mnt/e/Code/HackIos/out/umi-uefi-menu-ram.img && ls -l /mnt/e/Code/HackIos/out/umi-uefi-menu-ram.img | sed 's#^#  #'
-sha256sum /mnt/e/Code/HackIos/out/umi-uefi-menu-ram.img | sed 's#^#  #'
+cp -f "$IMG" /mnt/e/Code/HackIos/out/images/umi-uefi-menu-ram.img && ls -l /mnt/e/Code/HackIos/out/images/umi-uefi-menu-ram.img | sed 's#^#  #'
+sha256sum /mnt/e/Code/HackIos/out/images/umi-uefi-menu-ram.img | sed 's#^#  #'

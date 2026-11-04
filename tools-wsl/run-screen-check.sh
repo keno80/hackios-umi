@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/screenhost.txt
+OUT=/mnt/e/Code/HackIos/out/probes/screenhost.txt
 : > "$OUT"
 bash /mnt/e/Code/HackIos/tools-wsl/fix-vc-tail.sh >> "$OUT" 2>&1
 bash /mnt/e/Code/HackIos/tools-wsl/umi-screen-test/build-test.sh >> "$OUT" 2>&1

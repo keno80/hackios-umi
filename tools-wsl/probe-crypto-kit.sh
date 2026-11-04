@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
 F=$WS/out/umi-xnu/feeds/xnu-0b4b910d
-O=/mnt/e/Code/HackIos/out/crypto-kit.txt
+O=/mnt/e/Code/HackIos/out/probes/crypto-kit.txt
 {
   echo "== upstream callers in feeds =="
   grep -rn "register_crypto_functions" "$F" --include=*.c --include=*.cpp 2>/dev/null | grep -v "register_crypto.c" | head -10

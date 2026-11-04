@@ -1,7 +1,7 @@
 #!/bin/bash
 # 两道可行性闸门：(1) Linux 分支能否解 DMG 原始盘；(2) devices/umi 绑定是否还在
 set -u
-OUT=/mnt/e/Code/HackIos/out/linux-udif.txt
+OUT=/mnt/e/Code/HackIos/out/probes/linux-udif.txt
 U=/home/unixnu/code/UniXNU-main
 W=/home/unixnu/code/umi-work-pin
 {

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-LOG=/mnt/e/Code/HackIos/out/bootprogress.txt
+LOG=/mnt/e/Code/HackIos/out/probes/bootprogress.txt
 {
   echo "== boot-progress 目录"
   ls -la "$WS/devices/umi/package/boot-progress/"

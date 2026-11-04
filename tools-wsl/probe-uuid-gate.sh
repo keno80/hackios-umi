@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/uuid-gate.txt
+O=/mnt/e/Code/HackIos/out/probes/uuid-gate.txt
 {
   echo "== tree top level =="
   ls "$X" 2>/dev/null | head -20

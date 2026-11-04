@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/vconsole.txt
+O=/mnt/e/Code/HackIos/out/probes/vconsole.txt
 {
 echo "== 谁调用 console_init_with_context / console_init"
 grep -rn "console_init_with_context\|console_init(" "$T/osfmk" 2>/dev/null | head -40

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-LOG=/mnt/e/Code/HackIos/out/xnu-tree2.txt
+LOG=/mnt/e/Code/HackIos/out/probes/xnu-tree2.txt
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree
 {
   echo "== tree 顶层"

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/apfs-rw-module.txt
+OUT=/mnt/e/Code/HackIos/out/probes/apfs-rw-module.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 K=$(uname -r)

@@ -2,7 +2,7 @@
 # 取证：run-11-kit2 的新 pc 落在哪个函数、那条 ldr 取的是哪个字段
 set -u
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
-OUT=/mnt/e/Code/HackIos/out/abort11.txt
+OUT=/mnt/e/Code/HackIos/out/probes/abort11.txt
 {
   echo "== pc 0xfffffff0078ddaf4 所属函数与前后指令"
   llvm-objdump -d --start-address=0xfffffff0078ddac0 --stop-address=0xfffffff0078ddb30 "$K" 2>&1 | tail -30

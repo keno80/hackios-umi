@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/umi-patch-anchors.txt
+OUT=/mnt/e/Code/HackIos/out/probes/umi-patch-anchors.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 U=/home/unixnu/code/UniXNU

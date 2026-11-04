@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
-O=/mnt/e/Code/HackIos/out/panic_sym.txt
+O=/mnt/e/Code/HackIos/out/probes/panic_sym.txt
 llvm-nm -n --defined-only "$K" 2>/dev/null > /tmp/kalls.txt
 {
 echo "== total symbols =="

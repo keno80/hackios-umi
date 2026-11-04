@@ -1,7 +1,7 @@
 #!/bin/bash
 # XNU_BOOT_PROGRESS：谁能把它打开、实现件在不在我们拿得到的源里
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-bpgate.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-bpgate.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

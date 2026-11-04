@@ -1,7 +1,7 @@
 #!/bin/bash
 # 判定：Linux 上能否用 IPSW 造出 userdata-root.img（不依赖 macOS hdiutil）
 set -u
-OUT=/mnt/e/Code/HackIos/out/ipsw-path.txt
+OUT=/mnt/e/Code/HackIos/out/probes/ipsw-path.txt
 U=/home/unixnu/code/UniXNU-main
 W=/home/unixnu/code/umi-work-pin
 {

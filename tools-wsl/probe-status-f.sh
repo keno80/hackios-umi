@@ -1,7 +1,7 @@
 #!/bin/bash
 # 编译进度 + 历史 QEMU run 命名与屏幕证据，便于接续自测。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-status.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-status.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 LOGD=/home/unixnu/code/UniXNU-main/out/unixnu-logs

@@ -1,7 +1,7 @@
 #!/bin/bash
 # 等 run-18-boot-stage 的 screen.png 落地，然后与基线 sha 比对并 OCR 关键行。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-qemu18.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-qemu18.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 WS=/home/unixnu/code/umi-work-pin

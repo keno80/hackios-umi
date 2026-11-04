@@ -6,5 +6,5 @@
   sed -n '1,200p' tools/build_umi_xnu.py
   echo "########## run-kernel-pin.sh（我们此前的建法）"
   cat /mnt/e/Code/HackIos/tools-wsl/run-kernel-pin.sh
-} > /mnt/e/Code/HackIos/out/build-xnu-cli.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/build-xnu-cli.txt 2>&1
 echo WROTE

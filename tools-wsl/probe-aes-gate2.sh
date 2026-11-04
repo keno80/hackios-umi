@@ -2,7 +2,7 @@
 # 取证：定位 aes.c / register_crypto.h，列出 AES 组字段与 aes.c 用到的字段
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-OUT=/mnt/e/Code/HackIos/out/aes-gate2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/aes-gate2.txt
 {
   echo "== find"
   find "$W/libkern" -name 'aes.c' -o -name 'register_crypto.h' -o -name 'aes.h' 2>/dev/null

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/startup-stages.txt
+O=/mnt/e/Code/HackIos/out/probes/startup-stages.txt
 {
   echo "== startup subystem enum =="
   sed -n '55,110p' "$W/osfmk/kern/startup.h" | cat -n

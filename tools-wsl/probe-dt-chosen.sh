@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/dt-chosen.txt
+O=/mnt/e/Code/HackIos/out/probes/dt-chosen.txt
 {
   echo "== dtb files under work pin =="
   find "$WS" -name '*.dtb' -newermt '2026-10-01' 2>/dev/null | head -10

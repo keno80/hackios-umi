@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 K=/home/unixnu/code/umi-work-pin/out/umi/xnu/stage2/EFI/UniXNU/Payloads/kernel.macho
-O=/mnt/e/Code/HackIos/out/verify-kit.txt
+O=/mnt/e/Code/HackIos/out/probes/verify-kit.txt
 {
   echo "== kernel.macho =="
   ls -l "$K"; sha256sum "$K" | cut -c1-64

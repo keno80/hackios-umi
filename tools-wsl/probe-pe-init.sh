@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/pe-init-ctx.txt
+O=/mnt/e/Code/HackIos/out/probes/pe-init-ctx.txt
 {
   echo "== pe_init.c 330-400 =="
   sed -n '330,400p' "$W/pexpert/arm/pe_init.c" | cat -n

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/myspans.txt
+OUT=/mnt/e/Code/HackIos/out/probes/myspans.txt
 : > "$OUT"
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 for f in osfmk/console/video_console.c osfmk/arm/arm_init.c osfmk/kern/startup.c osfmk/kern/debug.c; do

@@ -3,7 +3,7 @@ import glob
 import os
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/build-progress.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/build-progress.txt', 'w')
 LOGD = '/home/unixnu/code/UniXNU-main/out/unixnu-logs'
 WS = '/home/unixnu/code/umi-work-pin'
 

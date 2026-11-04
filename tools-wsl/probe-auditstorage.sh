@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 WS=/home/unixnu/code/umi-work-pin
-OUT=/mnt/e/Code/HackIos/out/auditstorage-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/auditstorage-probe.txt
 {
   echo "== feed IOStorageFamily 的 git HEAD"
   git -C /home/unixnu/code/UniXNU-main/out/feeds/IOStorageFamily-ad2e13e0 rev-parse HEAD 2>&1

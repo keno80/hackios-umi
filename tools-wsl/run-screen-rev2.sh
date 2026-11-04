@@ -2,7 +2,7 @@
 set -uo pipefail
 TW=/mnt/e/Code/HackIos/tools-wsl
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-LOG=/mnt/e/Code/HackIos/out/screen-rev2.txt
+LOG=/mnt/e/Code/HackIos/out/probes/screen-rev2.txt
 : > "$LOG"
 
 echo "== 1. install painter tail ==" >> "$LOG"

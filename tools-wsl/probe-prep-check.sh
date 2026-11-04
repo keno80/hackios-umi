@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/prep-check.txt
+OUT=/mnt/e/Code/HackIos/out/probes/prep-check.txt
 : > "$OUT"
 ROOT=/home/unixnu/code/umi-work-pin
 XNU=$ROOT/out/umi-xnu/umi/tree/.cache/xnu-work

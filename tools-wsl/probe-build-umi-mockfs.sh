@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/umi-build-umi-xnu-mockfs.txt
+OUT=/mnt/e/Code/HackIos/out/probes/umi-build-umi-xnu-mockfs.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 F=/home/unixnu/code/umi-work-pin/tools/build_umi_xnu.py

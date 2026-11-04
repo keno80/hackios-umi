@@ -4,7 +4,7 @@ set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
 OD=$(command -v llvm-objdump || command -v objdump)
-OUT=/mnt/e/Code/HackIos/out/aes-gate.txt
+OUT=/mnt/e/Code/HackIos/out/probes/aes-gate.txt
 {
   echo "== aes_encrypt_key128 全函数"
   $OD -d --start-address=0xfffffff0078dd9fc --stop-address=0xfffffff0078dda58 "$K" 2>&1

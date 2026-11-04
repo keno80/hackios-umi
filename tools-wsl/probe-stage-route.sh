@@ -1,7 +1,7 @@
 #!/bin/bash
 # 路线 B′：把 boot_progress_stage 的 no-op 桩改接画屏器，需要的前置事实。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-stage-route.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-stage-route.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree

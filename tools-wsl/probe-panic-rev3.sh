@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/panic_rev3.txt
+O=/mnt/e/Code/HackIos/out/probes/panic_rev3.txt
 PC=fffffff007a1c398
 LR=fffffff0073f35a0
 FAR=fffffff040cffac3

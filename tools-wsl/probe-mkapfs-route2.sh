@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/mkapfs-route2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/mkapfs-route2.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 S=/home/unixnu/code/UniXNU-main

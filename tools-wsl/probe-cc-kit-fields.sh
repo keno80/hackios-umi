@@ -2,7 +2,7 @@
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 K=/home/unixnu/code/umi-work-pin/out/umi/xnu/stage2/EFI/UniXNU/Payloads/kernel.macho
-O=/mnt/e/Code/HackIos/out/cc-kit-fields.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-kit-fields.txt
 {
   echo "== struct crypto_functions full text =="
   awk '/^struct crypto_functions/,/^};/' "$W/libkern/libkern/crypto/register_crypto.h" | cat -n

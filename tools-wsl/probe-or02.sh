@@ -3,7 +3,7 @@
 set -u
 LOGD=/home/unixnu/code/umi-work-pin/out/umi-xnu-build
 STEPS=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/logs/20261103T062720673628Z
-OUT=/mnt/e/Code/HackIos/out/or02-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/or02-probe.txt
 {
   echo "== 外层日志全文"
   cat "$LOGD/or-02-bootstrap.log"

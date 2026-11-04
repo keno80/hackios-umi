@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/cc-headers2.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-headers2.txt
 {
   echo "== EXTERNAL_HEADERS/corecrypto =="
   ls "$W/EXTERNAL_HEADERS/corecrypto"

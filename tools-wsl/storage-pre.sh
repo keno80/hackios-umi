@@ -12,5 +12,5 @@ cd /home/unixnu/code/umi-work-pin || exit 1
   head -40 tools/build_umi_native_ufs.py
   echo "== 这三个脚本里有没有 macOS 专属调用"
   grep -n "hdiutil\|xcrun\|darwin\|platform.system\|ctypes" tools/build_umi_native_ufs.py tools/build_umi_root_bundle.py tools/build_umi_storage_providers.py | head -30
-} > /mnt/e/Code/HackIos/out/storage-pre.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/storage-pre.txt 2>&1
 echo WROTE

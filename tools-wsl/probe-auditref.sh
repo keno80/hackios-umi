@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 UP=/home/unixnu/code/UniXNU-pin
-OUT=/mnt/e/Code/HackIos/out/auditref-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/auditref-probe.txt
 {
   echo "== 仓里有没有随附的 interface-audit / static-audit json"
   find /home/unixnu/code /mnt/e/Code/HackIos -name '*interface-audit*' -o -name '*static-audit*' 2>/dev/null | head -20

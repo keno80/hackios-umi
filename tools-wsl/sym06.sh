@@ -17,5 +17,5 @@ s=json.load(open('$D/gdb-stop.json'))
 print({k:s[k] for k in list(s)[:12] if not k.startswith('x')})
 print('frame_chain 长度=', len(s.get('frame_chain',[])))
 "
-} > /mnt/e/Code/HackIos/out/run06-sym.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/run06-sym.txt 2>&1
 echo WROTE

@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/alt-boot-route.txt
+OUT=/mnt/e/Code/HackIos/out/probes/alt-boot-route.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # 静态验收：桩改接后，mountroot 之后的 TU 是否真的引用 umi_screen_text。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-verify-callers.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-verify-callers.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 WS=/home/unixnu/code/umi-work-pin

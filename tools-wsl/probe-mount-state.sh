@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-mount.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-mount.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 say "== devices 里到底有什么 =="

@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/sha1_dis.txt
+O=/mnt/e/Code/HackIos/out/probes/sha1_dis.txt
 {
 echo "== disasm sha1_init 0xfffffff0078dbb08..0xfffffff0078dbc10 =="
 llvm-objdump -d --start-address=0xfffffff0078dbb08 --stop-address=0xfffffff0078dbc10 "$K" 2>&1 | tail -n +5

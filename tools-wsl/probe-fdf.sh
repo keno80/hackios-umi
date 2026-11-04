@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-fdf.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-fdf.txt
 U=/home/unixnu/code/uefi-umi-b/Platforms/Xiaomi/umiPkg
 : > "$OUT"
 echo "== umi.fdf 里的 FV/FD 结构" >> "$OUT"

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-treestate.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-treestate.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 say "== date =="

@@ -2,7 +2,7 @@
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 E=$W/EXTERNAL_HEADERS
-O=/mnt/e/Code/HackIos/out/cc-hdr-deps.txt
+O=/mnt/e/Code/HackIos/out/probes/cc-hdr-deps.txt
 {
   for h in ccdigest.h cchmac.h ccsha1.h ccsha2.h ccaes.h ccdes.h ccmode.h ccrng.h; do
     echo "== $h includes =="

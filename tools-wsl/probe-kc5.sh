@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/kernel-check5.txt
+OUT=/mnt/e/Code/HackIos/out/probes/kernel-check5.txt
 VO=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/video_console.o
 KER=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/kernel/source-kernel.macho
 : > "$OUT"

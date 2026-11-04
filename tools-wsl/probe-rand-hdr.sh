@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/rand-hdr.txt
+O=/mnt/e/Code/HackIos/out/probes/rand-hdr.txt
 {
   echo "== libkern/crypto/rand.h =="
   cat -n "$W/libkern/libkern/crypto/rand.h"

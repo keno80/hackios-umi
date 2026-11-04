@@ -16,4 +16,4 @@ ls -l $G
 echo '== run-01 的 provenance 里 qemu 命令行'
 python3 -c "import json;d=json.load(open('/home/unixnu/code/umi-work-pin/out/umi-qemu/run-01/provenance.json'));print(json.dumps(d.get('command') or d,indent=1,ensure_ascii=False)[:1200])"
 echo DONE
-} > /mnt/e/Code/HackIos/out/gui-check.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/gui-check.txt 2>&1

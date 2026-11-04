@@ -1,7 +1,7 @@
 #!/bin/bash
 # boot_progress_stage 的定义到底在不在树里（决定钩子加在哪）
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-bpdef.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-bpdef.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

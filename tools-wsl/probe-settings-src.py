@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/settings-src.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/settings-src.txt', 'w')
 BS = '/home/unixnu/code/umi-work-pin/tools/build_umi_xnu.py'
 
 

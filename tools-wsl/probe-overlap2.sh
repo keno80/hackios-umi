@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-overlap2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-overlap2.txt
 sed -n '77,110p' /home/unixnu/code/umi-work-pin/tools/analyze_umi.py > /tmp/rr.txt
 python3 - > "$OUT" 2>&1 <<'PY'
 import sys

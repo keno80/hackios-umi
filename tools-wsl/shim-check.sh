@@ -14,5 +14,5 @@ cd /home/unixnu/code/umi-work-pin || exit 1
   echo __ZN9IOService10gMetaClassE | xcrun c++filt -n 2>&1 | head -2
   echo "########## build_umi_storage_providers.py 40..92（candidate 定义）"
   sed -n '40,92p' tools/build_umi_storage_providers.py
-} > /mnt/e/Code/HackIos/out/shim-check.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/shim-check.txt 2>&1
 echo WROTE

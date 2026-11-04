@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/startup-api.txt
+O=/mnt/e/Code/HackIos/out/probes/startup-api.txt
 {
   echo "== ccdigest.h 60-110 =="
   sed -n '60,110p' "$X/EXTERNAL_HEADERS/corecrypto/ccdigest.h"

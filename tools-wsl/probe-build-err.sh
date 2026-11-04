@@ -2,7 +2,7 @@
 set -u
 LOG=$(cat /home/unixnu/code/UniXNU-main/out/unixnu-logs/kernel-screen-latest.txt)
 KL=$(grep -o '/[^ ]*kernel\.log' "$LOG" | tail -1)
-O=/mnt/e/Code/HackIos/out/build-err.txt
+O=/mnt/e/Code/HackIos/out/probes/build-err.txt
 {
   echo "kernel step log = $KL"
   echo "== driver log =="

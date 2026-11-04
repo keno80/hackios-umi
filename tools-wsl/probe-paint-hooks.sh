@@ -1,7 +1,7 @@
 #!/bin/bash
 # F 步 Phase2：画屏器导出面 + mountroot 之后的日志通道到底走哪条、受什么门控
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-hooks.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-hooks.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 D=/home/unixnu/code/umi-work-pin/devices/umi/patches/umi-xnu

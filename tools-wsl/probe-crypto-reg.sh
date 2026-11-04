@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/crypto-reg.txt
+O=/mnt/e/Code/HackIos/out/probes/crypto-reg.txt
 D=$WS/out/umi/dtb/umi-running.dtb
 {
   echo "== register_crypto.c 20-70 =="

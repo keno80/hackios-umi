@@ -4,7 +4,7 @@ set -u
 L=/home/unixnu/code/umi-work-pin/out/umi-qemu/live
 SOCK=$L/qmp.sock
 OUT=$L/shot.png
-DST=/mnt/e/Code/HackIos/out/qemu-live-screen.png
+DST=/mnt/e/Code/HackIos/out/screens/qemu-live-screen.png
 [ -S "$SOCK" ] || { echo "没有 QMP socket，先跑 qemu-live"; exit 1; }
 rm -f "$OUT"
 python3 - "$SOCK" <<'PY'
@@ -27,11 +27,11 @@ s.sendall(json.dumps({"execute": "screendump",
 print(rd().decode(errors="replace").strip())
 PY
 if [ -f "$OUT" ]; then
-  DST=/mnt/e/Code/HackIos/out/qemu-live-screen.ppm
+  DST=/mnt/e/Code/HackIos/out/screens/qemu-live-screen.ppm
   cp "$OUT" "$DST"
   echo "已存 $DST（$(file -b "$OUT")）"
   if python3 -c "import PIL" 2>/dev/null; then
-    python3 - "$OUT" /mnt/e/Code/HackIos/out/qemu-live-screen.png <<'PY'
+    python3 - "$OUT" /mnt/e/Code/HackIos/out/screens/qemu-live-screen.png <<'PY'
 import sys
 from PIL import Image
 Image.open(sys.argv[1]).save(sys.argv[2])

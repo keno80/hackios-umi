@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-LOG=/mnt/e/Code/HackIos/out/ramconsole-patches.txt
+LOG=/mnt/e/Code/HackIos/out/probes/ramconsole-patches.txt
 P=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/patches/umi-xnu
 {
   echo "########## zz-console-trace.patch"

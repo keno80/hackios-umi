@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/spans2.txt
+OUT=/mnt/e/Code/HackIos/out/probes/spans2.txt
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
 VC=$W/osfmk/console/video_console.c
 DB=$W/osfmk/kern/debug.c

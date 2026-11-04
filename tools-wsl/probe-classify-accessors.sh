@@ -4,7 +4,7 @@ set -u
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
 NM=/usr/lib/llvm-18/bin/llvm-nm
 OD=/usr/lib/llvm-18/bin/llvm-objdump
-O=/mnt/e/Code/HackIos/out/accessor-class.txt
+O=/mnt/e/Code/HackIos/out/probes/accessor-class.txt
 mkdir -p "$(dirname "$O")"
 
 SYMS="ccdigest_init ccdigest_update ccdigest_final ccdigest ccmd5_di ccsha1_di ccsha256_di ccsha384_di ccsha512_di \

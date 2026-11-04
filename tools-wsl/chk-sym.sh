@@ -3,7 +3,7 @@ set -u
 W=/home/unixnu/code/umi-work-pin
 export PATH=/opt/unixnu-linux/CommandLineTools/usr/bin:/opt/unixnu-linux/bin:/usr/local/bin:/usr/bin:/bin
 cd "$W"
-OUT=/mnt/e/Code/HackIos/out/sym-all.txt
+OUT=/mnt/e/Code/HackIos/out/probes/sym-all.txt
 {
   echo "== run 列表"
   ls -1 out/umi-qemu/

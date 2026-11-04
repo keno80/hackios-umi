@@ -2,7 +2,7 @@
 # 取证：libkern/crypto 下有哪些 provider 文件、是否已有完整 crypto_functions 实例、构建清单收了谁
 set -u
 W=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-OUT=/mnt/e/Code/HackIos/out/provider.txt
+OUT=/mnt/e/Code/HackIos/out/probes/provider.txt
 {
   echo "== libkern/crypto 目录"
   ls -l "$W/libkern/crypto/"

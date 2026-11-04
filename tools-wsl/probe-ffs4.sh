@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-ffs4.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-ffs4.txt
 python3 - <<'PY' > "$OUT" 2>&1
 import re
 from pathlib import Path

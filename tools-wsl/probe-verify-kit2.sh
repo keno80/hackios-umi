@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 B=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837
-O=/mnt/e/Code/HackIos/out/verify-kit2.txt
+O=/mnt/e/Code/HackIos/out/probes/verify-kit2.txt
 {
   echo "== build dir kernel binaries =="
   ls -l --time-style=+%H:%M "$B"/mach.development.bcm2837* 2>/dev/null | head

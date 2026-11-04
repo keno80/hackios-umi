@@ -3,7 +3,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 TREE=$WS/out/umi-xnu/umi/tree
-OUT=/mnt/e/Code/HackIos/out/nativeufs-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/nativeufs-probe.txt
 {
   echo "== 全盘找 IOBlockStorageDevice.h"
   find /home/unixnu/code -name 'IOBlockStorageDevice.h' 2>/dev/null | head -20

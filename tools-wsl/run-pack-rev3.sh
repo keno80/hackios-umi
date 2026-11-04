@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-LOG=/mnt/e/Code/HackIos/out/pack-rev3.txt
+LOG=/mnt/e/Code/HackIos/out/probes/pack-rev3.txt
 : > "$LOG"
 WS=/home/unixnu/code/umi-work-pin
 

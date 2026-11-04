@@ -31,5 +31,5 @@ PYEOF
 
 echo "== 采集包里有没有 iomem/meminfo"
 ls /mnt/e/Code/HackIos/phone-capture/ 2>&1 | head -10
-} > /mnt/e/Code/HackIos/out/menu-pre.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/menu-pre.txt 2>&1
 echo WROTE

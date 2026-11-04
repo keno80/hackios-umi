@@ -2,7 +2,7 @@
 set -u
 WS=/home/unixnu/code/umi-work-pin
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/cc14.txt
+O=/mnt/e/Code/HackIos/out/probes/cc14.txt
 {
   echo "== cc14 references in work pin (non-binary) =="
   grep -rIn "cc14" "$WS/devices" "$X/libkern" "$X/osfmk" 2>/dev/null | head -25

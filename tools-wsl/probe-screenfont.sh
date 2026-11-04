@@ -3,7 +3,7 @@ set -u
 R=/home/unixnu/code/umi-work-pin
 T=$R/out/umi-xnu/umi/tree/.cache/xnu-work
 P=$R/out/umi-xnu/umi/tree/patches/umi-xnu
-O=/mnt/e/Code/HackIos/out/screenfont.txt
+O=/mnt/e/Code/HackIos/out/probes/screenfont.txt
 {
 echo "== iso_font.c 头部与符号"
 head -30 "$T/osfmk/console/iso_font.c"

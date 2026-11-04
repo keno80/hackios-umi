@@ -5,7 +5,7 @@ W=/home/unixnu/code/umi-work-pin
 K=$W/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
 SK=$W/out/umi-xnu/umi/kernel/source-kernel.macho
 LOGD=/home/unixnu/code/UniXNU-main/out/unixnu-logs
-OUT=/mnt/e/Code/HackIos/out/kit3-verify.txt
+OUT=/mnt/e/Code/HackIos/out/probes/kit3-verify.txt
 NM=/usr/lib/llvm-18/bin/llvm-nm
 OD=/usr/lib/llvm-18/bin/llvm-objdump
 

@@ -17,4 +17,4 @@ ls -d $W/out/* 2>/dev/null | head -20
 echo '== 内核产物'
 ls -l $W/out/umi-xnu/umi/kernel/*.macho 2>/dev/null | head
 echo DONE
-} > /mnt/e/Code/HackIos/out/qemu-recon.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/qemu-recon.txt 2>&1

@@ -2,7 +2,7 @@
 set -u
 TREE=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree
 FR=$TREE/.cache/fakeroot
-OUT=/mnt/e/Code/HackIos/out/storage-hdr-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/storage-hdr-probe.txt
 {
   echo "== Kernel.framework Headers/IOKit 下有无 storage"
   ls "$FR/System/Library/Frameworks/Kernel.framework/Versions/A/Headers/IOKit" | head -30

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
-OUT=/mnt/e/Code/HackIos/out/stuck4.txt
+OUT=/mnt/e/Code/HackIos/out/probes/stuck4.txt
 {
 echo "== startup.c: umi patch sites =="
 grep -n "umi_screen" "$X/osfmk/kern/startup.c"

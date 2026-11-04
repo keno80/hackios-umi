@@ -1,7 +1,7 @@
 #!/bin/bash
 # 用新内核（带 boot-stage 桩）重打真机 mockfs 镜像，不改手机。
 set -u
-LOG=/mnt/e/Code/HackIos/out/repack-stage.txt
+LOG=/mnt/e/Code/HackIos/out/probes/repack-stage.txt
 : > "$LOG"
 exec >>"$LOG" 2>&1
 INITRD=/home/unixnu/code/UniXNU-main/build/native-user-fixture-umi/launchd.macho

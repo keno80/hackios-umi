@@ -1,7 +1,7 @@
 #!/bin/bash
 # 确认 boot_progress_stage 的调用点没有被 boot_progress_active() 一类的门再挡一层。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-active.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-active.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work

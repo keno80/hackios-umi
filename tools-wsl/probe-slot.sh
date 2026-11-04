@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/slot-check.txt
+OUT=/mnt/e/Code/HackIos/out/probes/slot-check.txt
 : > "$OUT"
 D=/mnt/e/Code/HackIos/out/phone3
 echo "== 1. by-name 分区里 boot / recovery 的槽位形态" >> "$OUT"
@@ -29,7 +29,7 @@ PY
 echo "== 3. 我们的菜单镜像同字段对照" >> "$OUT"
 python3 - <<'PY' >> "$OUT" 2>&1
 import struct, hashlib
-d = open("/mnt/e/Code/HackIos/out/umi-uefi-menu.img", "rb").read()
+d = open("/mnt/e/Code/HackIos/out/images/umi-uefi-menu.img", "rb").read()
 print(f"umi-uefi-menu.img: {len(d):,} B sha {hashlib.sha256(d).hexdigest()[:24]}… "
       f"magic={d[:8]!r} page={struct.unpack_from('<I',d,36)[0]} hdr_ver={struct.unpack_from('<I',d,40)[0]}")
 PY

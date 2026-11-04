@@ -2,7 +2,7 @@
 # 抓 crypto kit 重编失败的第一条真实原因（构建已退出，日志稳定）
 set -u
 L=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/logs/20261103T130825322842Z/kernel.log
-O=/mnt/e/Code/HackIos/out/crypto-build-fail.txt
+O=/mnt/e/Code/HackIos/out/probes/crypto-build-fail.txt
 {
   echo "== log size =="
   ls -l "$L"

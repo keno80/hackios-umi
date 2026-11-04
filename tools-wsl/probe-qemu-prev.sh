@@ -1,6 +1,6 @@
 #!/bin/bash
 set -uo pipefail
-OUT=/mnt/e/Code/HackIos/out/qemu-prev.txt
+OUT=/mnt/e/Code/HackIos/out/probes/qemu-prev.txt
 Q=/home/unixnu/code/umi-work-pin/out/umi-qemu
 L=/home/unixnu/code/UniXNU-main/out/unixnu-logs
 : > "$OUT"

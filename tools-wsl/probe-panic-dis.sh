@@ -3,7 +3,7 @@ set -u
 WS=/home/unixnu/code/umi-work-pin
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 X=$WS/out/umi-xnu/umi/tree/.cache/xnu-work
-O=/mnt/e/Code/HackIos/out/panic_dis.txt
+O=/mnt/e/Code/HackIos/out/probes/panic_dis.txt
 OD=$(command -v llvm-objdump || echo /usr/bin/llvm-objdump)
 {
 echo "== objdump: $OD =="

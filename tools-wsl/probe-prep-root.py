@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import glob, os, subprocess, sys
 
-OUT = open('/mnt/e/Code/HackIos/out/prep-root.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/prep-root.txt', 'w')
 def w(*a):
     print(*a, file=OUT)
 

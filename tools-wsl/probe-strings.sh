@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-strings.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-strings.txt
 : > "$OUT"
 P=/home/unixnu/code/umi-work-pin/out/umi-menu-package/UniXNUPkg
 echo "== 屏幕字符串出处（整个 UniXNUPkg）" >> "$OUT"

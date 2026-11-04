@@ -1,7 +1,7 @@
 #!/bin/bash
 # #8 run-05 进度摘要
 L=/home/unixnu/code/umi-work-pin/out/umi-fw/run-05/firmware.log
-O=/mnt/e/Code/HackIos/out/fw05-status.txt
+O=/mnt/e/Code/HackIos/out/probes/fw05-status.txt
 {
 echo "== 存活: $(pgrep -f 'uefi-fw-build run-05' | head -1) / clang 进程 $(pgrep -c clang)"
 echo "== 日志大小: $(stat -c %s "$L" 2>/dev/null) bytes  修改于 $(date -r "$L" '+%H:%M:%S' 2>/dev/null)"

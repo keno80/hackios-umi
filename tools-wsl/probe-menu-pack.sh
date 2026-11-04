@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-pack-pre.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-pack-pre.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 UEFI=/home/unixnu/code/uefi-umi-b

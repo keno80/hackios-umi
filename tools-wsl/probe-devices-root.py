@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 MAIN = Path('/home/unixnu/code/UniXNU-main')
-OUT = Path('/mnt/e/Code/HackIos/out/devices-root-solutions.txt')
+OUT = Path('/mnt/e/Code/HackIos/out/probes/devices-root-solutions.txt')
 lines = []
 
 

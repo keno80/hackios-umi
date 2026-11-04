@@ -1,7 +1,7 @@
 #!/bin/bash
 # G 步：把仓库里的 UmiBootLog 装进固件工作树，增量重编（只动这个 App，FD 不该变）
 set -u
-OUT=/mnt/e/Code/HackIos/out/g-bootlog-build.txt
+OUT=/mnt/e/Code/HackIos/out/probes/g-bootlog-build.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 SRC=/mnt/e/Code/HackIos/devices/umi/fw/UmiBootLog

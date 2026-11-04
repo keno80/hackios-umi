@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
 
-OUT = open('/mnt/e/Code/HackIos/out/kernel-check4.txt', 'w')
+OUT = open('/mnt/e/Code/HackIos/out/probes/kernel-check4.txt', 'w')
 VO = '/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/video_console.o'
 AI = '/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/arm_init.o'
 KER = '/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/kernel/source-kernel.macho'

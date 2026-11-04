@@ -3,7 +3,7 @@
 set -u
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
 SK=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/kernel/source-kernel.macho
-OUT=/mnt/e/Code/HackIos/out/kit2-verify.txt
+OUT=/mnt/e/Code/HackIos/out/probes/kit2-verify.txt
 {
   echo "== source-kernel sha"
   sha256sum "$SK" | cut -c1-32
@@ -19,8 +19,8 @@ OUT=/mnt/e/Code/HackIos/out/kit2-verify.txt
   llvm-objdump -d --start-address=$START --stop-address=$END "$K" 2>/dev/null | grep -cE 'bl'
 } > "$OUT" 2>&1
 cd /mnt/e/Code/HackIos || exit 1
-setsid nohup bash tools-wsl/launch-qemu-screen.sh run-11-kit2 > /mnt/e/Code/HackIos/out/kit2-qemu-launch.txt 2>&1 &
+setsid nohup bash tools-wsl/launch-qemu-screen.sh run-11-kit2 > /mnt/e/Code/HackIos/out/probes/kit2-qemu-launch.txt 2>&1 &
 echo "qemu-launcher-pid=$!"
-setsid nohup bash tools-wsl/run-pack-rev3.sh > /mnt/e/Code/HackIos/out/kit2-pack-launch.txt 2>&1 &
+setsid nohup bash tools-wsl/run-pack-rev3.sh > /mnt/e/Code/HackIos/out/probes/kit2-pack-launch.txt 2>&1 &
 echo "pack-launcher-pid=$!"
 echo done

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 VC=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work/osfmk/console/video_console.c
-O=/mnt/e/Code/HackIos/out/vc_front.txt
+O=/mnt/e/Code/HackIos/out/probes/vc_front.txt
 total=$(wc -l < "$VC")
 {
   echo "TOTAL=$total"

@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/udif-diff2.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/udif-diff2.txt 2>&1
 P=/home/unixnu/code/umi-work-pin/sources/UniXNU/scripts/unixnu/userdata.py
 M=/home/unixnu/code/UniXNU-main/scripts/unixnu/userdata.py
 echo "== unified diff pinned -> main =="

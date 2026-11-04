@@ -25,6 +25,8 @@ LOG=$LOGD/kernel-trace-$ts.log
 echo "$LOG" > "$LOGD/kernel-trace-latest.txt"
 cd "$WS" || exit 1
 ensure-dev-bind || exit 1
+# 构建消费 ext4 那份 UniXNU-umi，Windows 侧改动必须先装过去，否则白跑一轮
+bash /mnt/e/Code/HackIos/tools-wsl/h-install-band.sh || { echo "BAND INSTALL FAILED"; exit 1; }
 setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone --early-trace -j 5 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-trace.pid"
 sleep 12

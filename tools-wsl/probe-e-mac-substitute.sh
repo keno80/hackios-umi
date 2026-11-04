@@ -1,7 +1,7 @@
 #!/bin/bash
 # E 步：把「Mac 专有」收窄到能逐条验证的集合，并实测 Linux userspace mkapfs 的上界
 set -u
-OUT=/mnt/e/Code/HackIos/out/e-mac-substitute.txt
+OUT=/mnt/e/Code/HackIos/out/probes/e-mac-substitute.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 S=/home/unixnu/code/UniXNU-main

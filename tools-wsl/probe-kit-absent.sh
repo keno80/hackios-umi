@@ -1,7 +1,7 @@
 #!/bin/bash
 # 确认上游 boot-progress 的「实现件」到底有没有，以及我们树里的 gate。
 set -u
-OUT=/mnt/e/Code/HackIos/out/f-kit-absent.txt
+OUT=/mnt/e/Code/HackIos/out/probes/f-kit-absent.txt
 : > "$OUT"
 exec >>"$OUT" 2>&1
 echo "== 全盘找 kits 目录 =="

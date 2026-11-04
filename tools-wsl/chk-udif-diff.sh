@@ -1,5 +1,5 @@
 #!/bin/bash
-exec > /mnt/e/Code/HackIos/out/udif-diff.txt 2>&1
+exec > /mnt/e/Code/HackIos/out/probes/udif-diff.txt 2>&1
 echo "== pinned tree: sources/UniXNU/scripts/unixnu/userdata.py =="
 grep -n -E "platform|hdiutil|udif|def " /home/unixnu/code/umi-work-pin/sources/UniXNU/scripts/unixnu/userdata.py
 echo "== md5 across trees =="

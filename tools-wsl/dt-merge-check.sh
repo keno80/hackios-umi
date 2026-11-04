@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
 cd /mnt/e/Code/HackIos/out/phone3/dt
-out=/mnt/e/Code/HackIos/out/phone3-dt.txt
+out=/mnt/e/Code/HackIos/out/probes/phone3-dt.txt
 
 {
 echo "=== 差异归因：fdtoverlay 产物 vs 运行中 live 树"
@@ -15,18 +15,18 @@ done
 
 echo
 echo "--- 顺序无关对比（sorted）"
-diff -u merged.sorted running.sorted > /mnt/e/Code/HackIos/out/phone3-merge-sorted.diff
-echo "rc=$? hunks=$(grep -c '^@@' /mnt/e/Code/HackIos/out/phone3-merge-sorted.diff) merged独有=$(grep -c '^-' /mnt/e/Code/HackIos/out/phone3-merge-sorted.diff) running独有=$(grep -c '^+' /mnt/e/Code/HackIos/out/phone3-merge-sorted.diff)"
+diff -u merged.sorted running.sorted > /mnt/e/Code/HackIos/out/probes/phone3-merge-sorted.diff
+echo "rc=$? hunks=$(grep -c '^@@' /mnt/e/Code/HackIos/out/probes/phone3-merge-sorted.diff) merged独有=$(grep -c '^-' /mnt/e/Code/HackIos/out/probes/phone3-merge-sorted.diff) running独有=$(grep -c '^+' /mnt/e/Code/HackIos/out/probes/phone3-merge-sorted.diff)"
 
 echo
 echo "--- 顺序相关对比（原序）"
-diff -u merged.nosym running.nosym > /mnt/e/Code/HackIos/out/phone3-merge.diff
-echo "rc=$? hunks=$(grep -c '^@@' /mnt/e/Code/HackIos/out/phone3-merge.diff)"
-echo "结论：去符号后两边行数差 $(( $(wc -l < running.nosym) - $(wc -l < merged.nosym) ))，但原序 diff 有 $(grep -c '^@@' /mnt/e/Code/HackIos/out/phone3-merge.diff) 处 —— 差异主要是节点排列顺序。"
+diff -u merged.nosym running.nosym > /mnt/e/Code/HackIos/out/probes/phone3-merge.diff
+echo "rc=$? hunks=$(grep -c '^@@' /mnt/e/Code/HackIos/out/probes/phone3-merge.diff)"
+echo "结论：去符号后两边行数差 $(( $(wc -l < running.nosym) - $(wc -l < merged.nosym) ))，但原序 diff 有 $(grep -c '^@@' /mnt/e/Code/HackIos/out/probes/phone3-merge.diff) 处 —— 差异主要是节点排列顺序。"
 
 echo
 echo "--- 真正的内容差异（排序后，逐条，最多 80 行）"
-grep -E '^[-+]' /mnt/e/Code/HackIos/out/phone3-merge-sorted.diff | grep -v '^[-+][-+][-+]' | cut -c1-140 | head -80
+grep -E '^[-+]' /mnt/e/Code/HackIos/out/probes/phone3-merge-sorted.diff | grep -v '^[-+][-+][-+]' | cut -c1-140 | head -80
 
 echo
 echo "--- 根节点对照"

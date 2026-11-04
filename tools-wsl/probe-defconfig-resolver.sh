@@ -2,7 +2,7 @@
 # 找 umi_defconfig/board.toml 的真实位置 + defconfig->env 解析器 + mockfs 前置件是否齐
 set -u
 T=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree
-OUT=/mnt/e/Code/HackIos/out/umi-defconfig-resolver.txt
+OUT=/mnt/e/Code/HackIos/out/probes/umi-defconfig-resolver.txt
 : > "$OUT"
 say() { printf '%s\n' "$*" >> "$OUT"; }
 

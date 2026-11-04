@@ -14,5 +14,5 @@ echo "== 有没有带斜杠的写法"
 grep -c "clang-edk2/" $GM 2>/dev/null
 echo "== builder 里 firmware.py 怎么设 CLANG_BIN"
 grep -rn "CLANG_BIN" /home/unixnu/code/umi-work-pin/sources/UniXNU/ 2>/dev/null | head -10
-} > /mnt/e/Code/HackIos/out/edk2-clangbin.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/edk2-clangbin.txt 2>&1
 echo WROTE

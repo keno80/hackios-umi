@@ -18,5 +18,5 @@ echo "== build_umi_xnu.py 里 original-mockfs 步骤与开关"
 grep -n "mockfs\|MOCKFS" /home/unixnu/code/umi-work-pin/tools/build_umi_xnu.py | head -20
 echo "== run-kernel-ownerroot.sh 里有没有 mockfs 选项"
 grep -n "mockfs\|MOCKFS\|NULL_ROOT" /mnt/e/Code/HackIos/tools-wsl/*.sh 2>/dev/null | head -10
-} > /mnt/e/Code/HackIos/out/mockfs-route.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/mockfs-route.txt 2>&1
 echo WROTE

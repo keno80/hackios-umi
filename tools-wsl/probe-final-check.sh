@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-final-check.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-final-check.txt
 : > "$OUT"
 WS=/home/unixnu/code/umi-work-pin
 cd "$WS" || exit 1
@@ -28,5 +28,5 @@ echo "== 3. verify_umi_fd.py 能不能跑（FD 内容闸门）" >> "$OUT"
 python3 tools/verify_umi_fd.py --expected-fd-sha256 6ef6a279e297d5296224a94ae07c12897d41f1035d46074e003ce2642f315fbc 2>&1 | tail -25 >> "$OUT"
 
 echo "== 4. 交付件" >> "$OUT"
-ls -la /mnt/e/Code/HackIos/out/umi-uefi-menu.img >> "$OUT" 2>&1
+ls -la /mnt/e/Code/HackIos/out/images/umi-uefi-menu.img >> "$OUT" 2>&1
 echo "WROTE"

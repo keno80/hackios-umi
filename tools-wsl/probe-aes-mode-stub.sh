@@ -2,7 +2,7 @@
 # 取证：ccaes_*_mode 访问器本体到底返回什么（是否为桩）
 set -u
 K=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped
-OUT=/mnt/e/Code/HackIos/out/aes-mode-stub.txt
+OUT=/mnt/e/Code/HackIos/out/probes/aes-mode-stub.txt
 {
   echo "== 0x745cf6c..0x745d070 这一片（含 ccaes/ccdes/ccpad 访问器）"
   llvm-objdump -d --start-address=0xfffffff00745cf60 --stop-address=0xfffffff00745d070 "$K" 2>&1 | sed -n '1,80p'

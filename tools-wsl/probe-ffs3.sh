@@ -1,5 +1,5 @@
 #!/bin/bash
-OUT=/mnt/e/Code/HackIos/out/menu-ffs3.txt
+OUT=/mnt/e/Code/HackIos/out/probes/menu-ffs3.txt
 : > "$OUT"
 U=/home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB/FV
 echo "== Guid.xref 头几行" >> "$OUT"

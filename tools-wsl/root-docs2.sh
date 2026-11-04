@@ -10,5 +10,5 @@
   head -60 devices/umi/patches/umi-xnu/zzzzz-umi-root-trace.patch
   echo "########## 补丁清单"
   ls devices/umi/patches/umi-xnu/
-} > /mnt/e/Code/HackIos/out/root-docs2.txt 2>&1
+} > /mnt/e/Code/HackIos/out/probes/root-docs2.txt 2>&1
 echo WROTE

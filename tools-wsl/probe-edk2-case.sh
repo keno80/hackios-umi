@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-OUT=/mnt/e/Code/HackIos/out/edk2-case-probe.txt
+OUT=/mnt/e/Code/HackIos/out/probes/edk2-case-probe.txt
 UEFI=/home/unixnu/code/uefi-umi-b
 {
   echo "== 上次固件构建日志里的报错上下文"
