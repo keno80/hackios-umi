@@ -14,15 +14,25 @@ sha256sum /home/unixnu/code/uefi-umi-b/Build/umiPkg/DEBUG_CLANGPDB/FV/SILICIUM_U
 ls -la "$INITRD"
 M=$(strings -a "$K" | grep -c mockfs)
 P=$(strings -a "$K" | grep -c 'MR exhausted last=')
-echo "mockfs 字符串=$M  探针字符串=$P"
-if [ "$M" -lt 50 ] || [ "$P" -ne 1 ]; then
-  echo "== 拒绝出图：内核缺假根驱动或缺探针（M=$M P=$P），别把上机时间花在已知空链上"
+echo "mockfs 字符串=$M  挂根探针字符串=$P"
+for s in 'INIT try' 'INIT exec ok' 'INIT returned' 'EL0 MACH' 'EL0 UNIX'; do
+  printf 'el0 探针 %-14s =%s\n' "$s" "$(strings -a "$K" | grep -c -F "$s")"
+done
+A1=$(strings -a "$K" | grep -c -F 'INIT try')
+A2=$(strings -a "$K" | grep -c -F 'INIT exec ok')
+A3=$(strings -a "$K" | grep -c -F 'INIT returned')
+A4=$(strings -a "$K" | grep -c -F 'EL0 MACH')
+A5=$(strings -a "$K" | grep -c -F 'EL0 UNIX')
+if [ "$M" -lt 50 ] || [ "$P" -ne 1 ] || [ "$A1" -lt 1 ] || [ "$A2" -lt 1 ] || \
+   [ "$A3" -lt 1 ] || [ "$A4" -lt 1 ] || [ "$A5" -lt 1 ]; then
+  echo "== 拒绝出图：内核缺假根驱动、挂根探针或 EL0 探针（mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A4/$A5）"
+  echo "   上机一次的成本远高于一道断言，别把手机时间花在没带判据的档上。"
   exit 1
 fi
 echo
 echo "== 1. payload 卷 =="
 python3 /mnt/e/Code/HackIos/tools-wsl/build-xnu-payload.py \
-  --kernel "$K" --title "Mi 10 8G - MOCKFS+PROBE" --mockfs-initrd "$INITRD"
+  --kernel "$K" --title "K-EL0 Mi 10 8G" --mockfs-initrd "$INITRD"
 echo "payload rc=$?"
 echo
 echo "== 2. bootimg + 自检 + 交付"
@@ -31,7 +41,7 @@ echo "pack rc=$?"
 echo
 echo "== 3. 改名交付（不留同字节的两份让人猜哪个是新的）=="
 XNU=/mnt/e/Code/HackIos/out/images/umi-uefi-menu-xnu.img
-NEW=/mnt/e/Code/HackIos/out/images/umi-uefi-menu-mockfs.img
+NEW=/mnt/e/Code/HackIos/out/images/umi-uefi-menu-el0.img
 if [ -f "$XNU" ] && [ "$XNU" -nt "$K" ]; then
   mv -f "$XNU" "$NEW"
   ls -l "$NEW" | sed 's#^# #'
