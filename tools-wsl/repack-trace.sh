@@ -20,14 +20,14 @@ echo "== 2. bootimg + 自检 + 交付"
 bash /mnt/e/Code/HackIos/tools-wsl/pack-menu-xnu.sh
 echo "pack rc=$?"
 echo
-echo "== 3. trace 档另存一名"
+echo "== 3. 把 trace 档产物改名交付（不留同字节的两份让人猜哪个是新的）=="
 XNU=/mnt/e/Code/HackIos/out/images/umi-uefi-menu-xnu.img
 TRACE=/mnt/e/Code/HackIos/out/images/umi-uefi-menu-trace.img
-if [ -f "$XNU" ]; then
-  cp -f "$XNU" "$TRACE"
+if [ -f "$XNU" ] && [ "$XNU" -nt "$K" ]; then
+  mv -f "$XNU" "$TRACE"
   ls -l "$TRACE" | sed 's#^# #'
   sha256sum "$TRACE" | sed 's#^# #'
 else
-  echo "== 跳过：$XNU 不存在（自检未过？）"
+  echo "== 跳过：$XNU 不存在或不比内核新（本轮自检未过，别把上一轮的镜像当新的）"
 fi
 echo "== done =="
