@@ -1,0 +1,58 @@
+--- a/osfmk/kern/zalloc.c
++++ b/osfmk/kern/zalloc.c
+@@ -759,7 +759,7 @@
+ __abortlike
+ static void
+ zone_page_metadata_index_confusion_panic(zone_t zone, vm_offset_t addr,
+-    struct zone_page_metadata *meta)
++    struct zone_page_metadata *meta, const char *umi_zidx_site)
+ {
+ 	zone_security_flags_t zsflags = zone_security_config(zone), src_zsflags;
+ 	zone_id_t zidx;
+@@ -772,9 +772,11 @@
+ 
+ 	zidx = meta->zm_index;
+ 	if (zidx >= os_atomic_load(&num_zones, relaxed)) {
+-		panic("%p expected in zone %s%s[%d], but metadata has invalid zidx: %d",
++		panic("%p expected in zone %s%s[%d], but metadata has invalid zidx: %d"
++		    " UMI28 nz=%d cpu=%d slot=%ld site=%s",
+ 		    (void *)addr, zone_heap_name(zone), zone->z_name, zone_index(zone),
+-		    zidx);
++		    zidx, (int)os_atomic_load(&num_zones, relaxed), cpu_number(),
++		    (long)(meta - zone_info.zi_meta_base), umi_zidx_site);
+ 	}
+ 
+ 	src_zone = &zone_array[zidx];
+@@ -784,9 +786,12 @@
+ 		kalloc_type_src_zone = src_zone;
+ 	}
+ 
+-	panic("%p not in the expected zone %s%s[%d], but found in %s%s[%d]",
++	panic("%p not in the expected zone %s%s[%d], but found in %s%s[%d]"
++	    " UMI28 nz=%d cpu=%d slot=%ld site=%s",
+ 	    (void *)addr, zone_heap_name(zone), zone->z_name, zone_index(zone),
+-	    zone_heap_name(src_zone), src_zone->z_name, zidx);
++	    zone_heap_name(src_zone), src_zone->z_name, zidx,
++	    (int)os_atomic_load(&num_zones, relaxed), cpu_number(),
++	    (long)(meta - zone_info.zi_meta_base), umi_zidx_site);
+ }
+ 
+ __abortlike
+@@ -975,7 +980,7 @@
+ zone_meta_validate(zone_t z, struct zone_page_metadata *meta, vm_address_t addr)
+ {
+ 	if (!zone_has_index(z, meta->zm_index)) {
+-		zone_page_metadata_index_confusion_panic(z, addr, meta);
++		zone_page_metadata_index_confusion_panic(z, addr, meta, "validate");
+ 	}
+ }
+ 
+@@ -1158,7 +1163,7 @@
+ 	meta = zone_meta_from_addr(addr);
+ 
+ 	if (!zone_has_index(zone, meta->zm_index)) {
+-		zone_page_metadata_index_confusion_panic(zone, addr, meta);
++		zone_page_metadata_index_confusion_panic(zone, addr, meta, "free");
+ 	}
+ 
+ 	if (meta->zm_chunk_len == ZM_SECONDARY_PCPU_PAGE) {

@@ -6,6 +6,9 @@
 //   umask=60 madvise=75 munmap=73 mprotect=74 pipe=42 dup2=90 fcntl=92
 //   gettimeofday=116 getrusage=117 stat64=338 mmap=197 sysctl=202
 //   kqueue=362 kevent=363 issetugid=327
+// Mach 面（R 步起）号表取自本树 osfmk/kern/syscall_sw.c 的 mach_trap_table[]，x16 用负号：
+//   task_self=-28 host_self=-29 thread_self=-27 mach_reply=-26 timebase_info=-89
+//   port_allocate=-16 port_mod_refs=-19 port_deallocate=-18 mach_msg=-31
 .text
 .global _start, _checkpoint
 _start:
@@ -300,6 +303,108 @@ _after_read:
   mrs x9, nzcv
   orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
   str x9, [x22, #176]
+
+  // ==== R 步三期：Mach trap 面 ====
+  // 号表取自本树 osfmk/kern/syscall_sw.c 的 mach_trap_table[]（MACH_TRAP_TABLE_COUNT=128）。
+  // mach 侧的 x16 是负数：bsd_arm64.c 的 mach_syscall() 里 call_number = -x16，>=128 直接判非法，
+  // 所以这里只打表里真实存在的号。64 位下参数就是 x0..x(arg_count-1) 直取（arm_get_mach_syscall_args）。
+  // 每一发都先确认过不阻塞：0 参的四个 port trap 只造 right；timebase 只 copyout 8 字节；
+  // mach_msg 的 option=0 既不落 SEND 也不落 RCV 分支，内核立刻返回。
+
+  // [25] task_self_trap(-28) —— 返回自己的 task port，后面 port_* 都拿它当 target
+  mov x16, #-28
+  svc #0x80
+  str x0, [x19, #184]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #184]
+  mov x25, x0
+
+  // [26] host_self_trap(-29) —— host port；真机/ QEMU 上内核有没有 host 端口，这一发给答案
+  mov x16, #-29
+  svc #0x80
+  str x0, [x19, #192]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #192]
+
+  // [27] thread_self_trap(-27)
+  mov x16, #-27
+  svc #0x80
+  str x0, [x19, #200]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #200]
+
+  // [28] mach_reply_port(-26) —— launchd 收 RPC 回复全靠它
+  mov x16, #-26
+  svc #0x80
+  str x0, [x19, #208]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #208]
+
+  // [29] mach_timebase_info_trap(-89) —— 出参 numer/denom 两个 32 位字
+  adrp x0, _tb@PAGE
+  add x0, x0, _tb@PAGEOFF
+  mov x16, #-89
+  svc #0x80
+  str x0, [x19, #216]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #216]
+
+  // [30] mach_port_allocate(-16)(task, MACH_PORT_RIGHT_RECEIVE=1, &_pname) —— 第一次真造一个 port
+  mov x0, x25
+  mov x1, #1
+  adrp x2, _pname@PAGE
+  add x2, x2, _pname@PAGEOFF
+  mov x16, #-16
+  svc #0x80
+  str x0, [x19, #224]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #224]
+  adrp x26, _pname@PAGE
+  add x26, x26, _pname@PAGEOFF
+
+  // [31] mach_port_mod_refs(-19)(task, name, MACH_PORT_RIGHT_SEND=0, +1) —— 给自己加一个 send right
+  mov x0, x25
+  ldr w1, [x26]
+  mov x2, #0
+  mov x3, #1
+  mov x16, #-19
+  svc #0x80
+  str x0, [x19, #232]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #232]
+
+  // [32] mach_port_deallocate(-18)(task, name) —— 把刚加的 send right 退掉，验权利生命周期收尾
+  mov x0, x25
+  ldr w1, [x26]
+  mov x16, #-18
+  svc #0x80
+  str x0, [x19, #240]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #240]
+
+  // [33] mach_msg_trap(-31)(msg, option=0, 0, 0, 0, 0, 0) —— 通道本身通不通；option=0 保证不阻塞
+  adrp x0, _msg@PAGE
+  add x0, x0, _msg@PAGEOFF
+  mov x1, #0
+  mov x2, #0
+  mov x3, #0
+  mov x4, #0
+  mov x5, #0
+  mov x6, #0
+  mov x16, #-31
+  svc #0x80
+  str x0, [x19, #248]
+  mrs x9, nzcv
+  orr x9, x9, #0x100 // executed 标记位：返回 0 也能和「没跑到」区分
+  str x9, [x22, #248]
   b _checkpoint
 
 _child:
@@ -348,6 +453,13 @@ _rbuf:
   .space 64
 _wstatus:
   .word 0, 0
+_tb:
+  .quad 0          // mach_timebase_info_data_t：numer/denom 各 32 位
+_pname:
+  .long 0, 0       // mach_port_allocate 的出参（mach_port_name_t = 32 位）
+.balign 16
+_msg:
+  .space 64        // mach_msg 的缓冲区；option=0 时内核不会碰它，给个合法地址只为稳妥
 _p_none:
   .asciz "/nonexistent"
 _p_launchd:
