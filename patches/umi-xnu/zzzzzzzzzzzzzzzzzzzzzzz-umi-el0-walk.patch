@@ -1,0 +1,46 @@
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -1962,14 +1962,15 @@
+ 		/* Counting perhaps better in the handler, but this is how it's been done */
+ 		thread->syscalls_unix++;
+ 		{
+-			static int umi_el0_unix_done;
++			static uint8_t umi_el0_unix_seen[512];
+ 
+-			if (!umi_el0_unix_done) {
++			if (trap_no >= 0 && trap_no < (int)sizeof(umi_el0_unix_seen) &&
++			    !umi_el0_unix_seen[trap_no]) {
+ 				char umi_msg[96];
+ 
+-				umi_el0_unix_done = 1;
++				umi_el0_unix_seen[trap_no] = 1;
+ 				(void)snprintf(umi_msg, sizeof(umi_msg),
+-				    "EL0 UNIX svc=%d pc=0x%llx", trap_no,
++				    "EL0 IN svc=%d pc=0x%llx", trap_no,
+ 				    (unsigned long long)get_saved_state_pc(state));
+ 				boot_progress_stage(umi_msg);
+ 			}
+@@ -1979,6 +1980,23 @@
+ 		assert(p);
+ 
+ 		unix_syscall(state, thread, p);
++		/* UMI bring-up: the return value is the only on-panel evidence of whether a
++		 * given unix syscall actually completed; a missing OUT line for the last IN
++		 * line is exactly the syscall that stopped the walk. */
++		{
++			static uint8_t umi_el0_out_seen[512];
++
++			if (trap_no >= 0 && trap_no < (int)sizeof(umi_el0_out_seen) &&
++			    !umi_el0_out_seen[trap_no]) {
++				char umi_msg[96];
++
++				umi_el0_out_seen[trap_no] = 1;
++				(void)snprintf(umi_msg, sizeof(umi_msg),
++				    "EL0 OUT svc=%d r0=0x%llx", trap_no,
++				    (unsigned long long)saved_state64(state)->x[0]);
++				boot_progress_stage(umi_msg);
++			}
++		}
+ 	}
+ }
+ 

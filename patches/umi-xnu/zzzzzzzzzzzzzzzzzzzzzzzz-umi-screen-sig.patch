@@ -1,0 +1,48 @@
+--- a/osfmk/console/video_console.c
++++ b/osfmk/console/video_console.c
+@@ -3665,6 +3665,27 @@
+ 	umi_scr_putc(10);
+ }
+ 
++/*
++	 * UMI bring-up: the repeat signature below is a content hash, not the
++	 * address of the message. Probes build their text in one shared stack buffer,
++	 * so comparing pointers collapsed genuinely different lines into a single
++	 * counted line. Identical text still folds, so spin loops stay quiet.
++	 */
++static unsigned long
++umi_scr_text_hash(const char *umi_text)
++{
++	unsigned long umi_hash = 14695981039346656037UL;
++
++	if (umi_text == NULL) {
++		return 0;
++	}
++	for (; *umi_text != '\0'; umi_text++) {
++		umi_hash = (umi_hash ^ (unsigned long) (unsigned char) *umi_text) *
++		    1099511628211UL;
++	}
++	return umi_hash;
++}
++
+ void
+ umi_screen_text(const char *umi_message)
+ {
+@@ -3673,7 +3694,7 @@
+ 	}
+ 
+ 	umi_scr_total++;
+-	if (umi_scr_sig_kind == 2 && umi_scr_sig_a == (unsigned long) umi_message) {
++	if (umi_scr_sig_kind == 2 && umi_scr_sig_a == umi_scr_text_hash(umi_message)) {
+ 		umi_scr_reps++;
+ 		if ((umi_scr_reps & 0x3fUL) == 0) {
+ 			umi_scr_stamp();
+@@ -3682,7 +3703,7 @@
+ 	}
+ 	umi_scr_stamp();
+ 	umi_scr_sig_kind = 2;
+-	umi_scr_sig_a = (unsigned long) umi_message;
++	umi_scr_sig_a = umi_scr_text_hash(umi_message);
+ 	umi_scr_sig_b = 0;
+ 	umi_scr_reps = 1;
+ 	umi_scr_prev_row = umi_scr_cy;
