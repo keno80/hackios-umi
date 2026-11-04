@@ -1,0 +1,202 @@
+--- a/libkern/crypto/register_crypto.c
++++ b/libkern/crypto/register_crypto.c
+@@ -46,3 +46,187 @@
+ 
+ 	return 0;
+ }
++/* ---- umi: corecrypto-backed provider registration ---- */
++/*
++ * This source build links corecrypto but has no caller of
++ * register_crypto_functions(), so g_crypto_funcs stays NULL and every
++ * libkern/crypto wrapper that dispatches through it faults.  The first hit on
++ * umi is IOPlatformExpertDevice::generatePlatformUUID(), whose SHA1 over
++ * /chosen unique-chip-id + chip-id runs from PE_init_iokit(), i.e. before
++ * kernel_startup_initialize_upto(STARTUP_SUB_EARLY_BOOT) -- so a STARTUP() hook
++ * is too late and umi_crypto_kit_register() is called from pe_init.c instead.
++ * The second hit was tcp_init() seeding its AES context through
++ * g_crypto_funcs->ccaes_cbc_encrypt, so every field the libkern wrappers
++ * dereference without a NULL check is filled here.
++ */
++
++#include <corecrypto/ccsha1.h>
++#include <corecrypto/ccsha2.h>
++#include <corecrypto/ccrng.h>
++#include <corecrypto/ccaes.h>
++#include <corecrypto/ccdes.h>
++#include <corecrypto/ccpad.h>
++
++/* This corecrypto ships ccmd4.h only, but exports the MD5 accessor. */
++extern const struct ccdigest_info *ccmd5_di(void);
++
++/*
++ * bsd/nfs/gss/ccrypto.c redefines the public SHA1/AES-CBC/3DES-CBC/CTS/parity
++ * entry points as dispatchers that read g_crypto_funcs back, so calling them
++ * while building the kit stores NULL and the next consumer faults one
++ * indirection later (tcp_init seeding its AES context, far=0x0).  The real
++ * corecrypto bodies are linked under their cc14_ names.
++ */
++extern const struct ccmode_cbc *cc14_ccdes3_cbc_encrypt_mode(void);
++extern const struct ccmode_cbc *cc14_ccdes3_cbc_decrypt_mode(void);
++extern void cc14_ccdes_key_set_odd_parity(void *umi_key, size_t umi_length);
++extern size_t cc14_ccpad_cts3_encrypt(const struct ccmode_cbc *umi_cbc,
++    cccbc_ctx *umi_ctx, cccbc_iv *umi_iv, size_t umi_nbytes,
++    const void *umi_in, void *umi_out);
++extern size_t cc14_ccpad_cts3_decrypt(const struct ccmode_cbc *umi_cbc,
++    cccbc_ctx *umi_ctx, cccbc_iv *umi_iv, size_t umi_nbytes,
++    const void *umi_in, void *umi_out);
++
++/* ccdigest_final() is a header inline here, and the kit wants a function
++ * pointer taking void *digest rather than unsigned char *digest. */
++static void
++umi_ccdigest_final(const struct ccdigest_info *umi_di, ccdigest_ctx_t umi_ctx,
++    void *umi_digest)
++{
++	ccdigest_final(umi_di, umi_ctx, (unsigned char *)umi_digest);
++}
++
++/* kmem calls crypto_random_uniform() from its allocation fast path once
++ * STARTUP_SUB_EARLY_BOOT is reached, and kmem_crypto_init() initializes the
++ * per-cpu contexts unconditionally, so the rng slots must be live.  A context
++ * is just a handle to the platform corecrypto rng. */
++static struct ccrng_state *
++umi_rng_handle(crypto_random_ctx_t umi_ctx)
++{
++	int umi_error = 0;
++	struct ccrng_state *umi_rng = NULL;
++
++	if (umi_ctx != NULL) {
++		umi_rng = *(struct ccrng_state **)umi_ctx;
++	}
++	if (umi_rng == NULL) {
++		umi_rng = ccrng(&umi_error);
++	}
++
++	return umi_rng;
++}
++
++static size_t
++umi_random_kmem_ctx_size(void)
++{
++	return sizeof(struct ccrng_state *);
++}
++
++static void
++umi_random_kmem_init(crypto_random_ctx_t umi_ctx)
++{
++	int umi_error = 0;
++
++	*(struct ccrng_state **)umi_ctx = ccrng(&umi_error);
++}
++
++static void
++umi_random_generate(crypto_random_ctx_t umi_ctx, void *umi_random,
++    size_t umi_random_size)
++{
++	struct ccrng_state *umi_rng = umi_rng_handle(umi_ctx);
++
++	if (umi_rng != NULL) {
++		ccrng_generate(umi_rng, umi_random_size, umi_random);
++	} else {
++		bzero(umi_random, umi_random_size);
++	}
++}
++
++static void
++umi_random_uniform(crypto_random_ctx_t umi_ctx, uint64_t umi_bound,
++    uint64_t *umi_random)
++{
++	struct ccrng_state *umi_rng = umi_rng_handle(umi_ctx);
++
++	if (umi_rng == NULL || ccrng_uniform(umi_rng, umi_bound, umi_random) != 0) {
++		*umi_random = 0;
++	}
++}
++
++static const struct ccchacha20poly1305_fns umi_chacha20poly1305_fns = {
++	ccchacha20poly1305_info,
++	ccchacha20poly1305_init,
++	ccchacha20poly1305_reset,
++	ccchacha20poly1305_setnonce,
++	ccchacha20poly1305_incnonce,
++	ccchacha20poly1305_aad,
++	ccchacha20poly1305_encrypt,
++	ccchacha20poly1305_finalize,
++	ccchacha20poly1305_decrypt,
++	ccchacha20poly1305_verify,
++};
++
++static struct crypto_functions umi_crypto_kit;
++
++void
++umi_crypto_kit_register(void)
++{
++	if (g_crypto_funcs != NULL) {
++		return;
++	}
++
++	umi_crypto_kit.ccdigest_init_fn = ccdigest_init;
++	umi_crypto_kit.ccdigest_update_fn = ccdigest_update;
++	umi_crypto_kit.ccdigest_final_fn = umi_ccdigest_final;
++	umi_crypto_kit.ccdigest_fn = ccdigest;
++
++	umi_crypto_kit.ccmd5_di = ccmd5_di();
++	umi_crypto_kit.ccsha1_di = &ccsha1_ltc_di;
++	umi_crypto_kit.ccsha256_di = ccsha256_di();
++	umi_crypto_kit.ccsha384_di = ccsha384_di();
++	umi_crypto_kit.ccsha512_di = ccsha512_di();
++
++	umi_crypto_kit.cchmac_init_fn = cchmac_init;
++	umi_crypto_kit.cchmac_update_fn = cchmac_update;
++	umi_crypto_kit.cchmac_final_fn = cchmac_final;
++	umi_crypto_kit.cchmac_fn = cchmac;
++
++	umi_crypto_kit.ccaes_ecb_encrypt = ccaes_ecb_encrypt_mode();
++	umi_crypto_kit.ccaes_ecb_decrypt = ccaes_ecb_decrypt_mode();
++	umi_crypto_kit.ccaes_cbc_encrypt = &ccaes_gladman_cbc_encrypt_mode;
++	umi_crypto_kit.ccaes_cbc_decrypt = &ccaes_gladman_cbc_decrypt_mode;
++	umi_crypto_kit.ccaes_ctr_crypt = ccaes_ctr_crypt_mode();
++	umi_crypto_kit.ccaes_xts_encrypt = ccaes_xts_encrypt_mode();
++	umi_crypto_kit.ccaes_xts_decrypt = ccaes_xts_decrypt_mode();
++	umi_crypto_kit.ccaes_gcm_encrypt = ccaes_gcm_encrypt_mode();
++	umi_crypto_kit.ccaes_gcm_decrypt = ccaes_gcm_decrypt_mode();
++	umi_crypto_kit.ccgcm_init_with_iv_fn = ccgcm_init_with_iv;
++	umi_crypto_kit.ccgcm_inc_iv_fn = ccgcm_inc_iv;
++
++	umi_crypto_kit.ccchacha20poly1305_fns = &umi_chacha20poly1305_fns;
++
++	umi_crypto_kit.ccdes_ecb_encrypt = ccdes_ecb_encrypt_mode();
++	umi_crypto_kit.ccdes_ecb_decrypt = ccdes_ecb_decrypt_mode();
++	umi_crypto_kit.ccdes_cbc_encrypt = ccdes_cbc_encrypt_mode();
++	umi_crypto_kit.ccdes_cbc_decrypt = ccdes_cbc_decrypt_mode();
++	umi_crypto_kit.cctdes_ecb_encrypt = ccdes3_ecb_encrypt_mode();
++	umi_crypto_kit.cctdes_ecb_decrypt = ccdes3_ecb_decrypt_mode();
++	umi_crypto_kit.cctdes_cbc_encrypt = cc14_ccdes3_cbc_encrypt_mode();
++	umi_crypto_kit.cctdes_cbc_decrypt = cc14_ccdes3_cbc_decrypt_mode();
++	umi_crypto_kit.ccdes_key_is_weak_fn = ccdes_key_is_weak;
++	umi_crypto_kit.ccdes_key_set_odd_parity_fn = cc14_ccdes_key_set_odd_parity;
++	umi_crypto_kit.ccpad_cts3_encrypt_fn = cc14_ccpad_cts3_encrypt;
++	umi_crypto_kit.ccpad_cts3_decrypt_fn = cc14_ccpad_cts3_decrypt;
++
++	umi_crypto_kit.ccrng_fn = ccrng;
++	umi_crypto_kit.random_generate_fn = umi_random_generate;
++	umi_crypto_kit.random_uniform_fn = umi_random_uniform;
++	umi_crypto_kit.random_kmem_ctx_size_fn = umi_random_kmem_ctx_size;
++	umi_crypto_kit.random_kmem_init_fn = umi_random_kmem_init;
++
++	umi_crypto_kit.ccrsa_make_pub_fn = ccrsa_make_pub;
++	umi_crypto_kit.ccrsa_verify_pkcs1v15_fn = ccrsa_verify_pkcs1v15;
++
++	(void) register_crypto_functions(&umi_crypto_kit);
++}
+--- a/pexpert/arm/pe_init.c
++++ b/pexpert/arm/pe_init.c
+@@ -386,6 +386,9 @@
+ 	}
+ 
+ 	InitIOKit(PE_state.deviceTreeHead);
++	/* umi_crypto_kit_register: SHA1 in configureDefaults() needs a crypto provider. */
++	extern void umi_crypto_kit_register(void);
++	umi_crypto_kit_register();
+ 	ConfigureIOKit();
+ }
+ 
