@@ -1,0 +1,77 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7567,13 +7567,23 @@
+ #endif
+ 
+ 	error = ENOENT;
++	/* UMI bring-up: every one of these outcomes was printf-only, and printf never
++	 * reaches this panel, so "load_init_program enter" as the last line is ambiguous. */
+ 	for (i = 0; i < sizeof(init_programs) / sizeof(init_programs[0]); i++) {
++		char umi_msg[160];
++
++		(void)snprintf(umi_msg, sizeof(umi_msg), "INIT try %s", init_programs[i]);
++		boot_progress_stage(umi_msg);
+ 		printf("load_init_program: attempting to load %s\n", init_programs[i]);
+ 		error = load_init_program_at_path(p, (user_addr_t)scratch_addr, init_programs[i], init_envp);
+ 		if (!error) {
++			boot_progress_stage("INIT exec ok");
+ 			return;
+ 		} else if (error != ENOENT) {
+ 			printf("load_init_program: failed loading %s: errno %d\n", init_programs[i], error);
++			(void)snprintf(umi_msg, sizeof(umi_msg), "INIT err=%d %s", error,
++			    init_programs[i]);
++			boot_progress_stage(umi_msg);
+ 		}
+ 	}
+ 
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -1318,6 +1318,7 @@
+ 	bsd_init_kprintf("bsd_do_post - done");
+ 
+ 	load_init_program(p);
++	boot_progress_stage("INIT returned");
+ 	lock_trace = 1;
+ }
+ 
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -1942,10 +1942,38 @@
+ 
+ 		/* Counting perhaps better in the handler, but this is how it's been done */
+ 		thread->syscalls_mach++;
++		/* UMI bring-up: one line per flavour, first hit only. This is the only
++		 * positive proof on this panel that EL0 actually executed user code. */
++		{
++			static int umi_el0_mach_done;
++
++			if (!umi_el0_mach_done) {
++				char umi_msg[96];
++
++				umi_el0_mach_done = 1;
++				(void)snprintf(umi_msg, sizeof(umi_msg),
++				    "EL0 MACH svc=%d pc=0x%llx", trap_no,
++				    (unsigned long long)get_saved_state_pc(state));
++				boot_progress_stage(umi_msg);
++			}
++		}
+ 		mach_syscall(state);
+ 	} else {
+ 		/* Counting perhaps better in the handler, but this is how it's been done */
+ 		thread->syscalls_unix++;
++		{
++			static int umi_el0_unix_done;
++
++			if (!umi_el0_unix_done) {
++				char umi_msg[96];
++
++				umi_el0_unix_done = 1;
++				(void)snprintf(umi_msg, sizeof(umi_msg),
++				    "EL0 UNIX svc=%d pc=0x%llx", trap_no,
++				    (unsigned long long)get_saved_state_pc(state));
++				boot_progress_stage(umi_msg);
++			}
++		}
+ 		p = get_bsdthreadtask_info(thread);
+ 
+ 		assert(p);
