@@ -1,0 +1,98 @@
+--- a/bsd/kern/kern_fork.c
++++ b/bsd/kern/kern_fork.c
+@@ -139,6 +139,7 @@
+ #include <sys/shm_internal.h>   /* for shmfork() */
+ #include <mach/task.h>          /* for thread_create() */
+ #include <mach/thread_act.h>    /* for thread_resume() */
++#include <kern/boot_progress.h> /* UMI bring-up: boot_progress_stage reaches the painter */
+ 
+ #include <sys/sdt.h>
+ 
+@@ -582,6 +583,21 @@
+ 		/* Return to the parent */
+ 		child_proc = (proc_t)get_bsdthreadtask_info(child_thread);
+ 		retval[0] = proc_getpid(child_proc);
++		/*
++		 * UMI bring-up: the reaper below keys on thread_is_active(current_thread()),
++		 * and thread->active is only ever set TRUE by thread_create_internal().
++		 * Whether the init thread carries that bit is a runtime fact, so put it on
++		 * the screen instead of guessing.
++		 */
++		{
++			char umi_msg[96];
++
++			(void)snprintf(umi_msg, sizeof(umi_msg),
++			    "FORK cpid=%d act=%d lex=%d", (int)retval[0],
++			    (int)thread_is_active(current_thread()),
++			    (parent_proc->p_lflag & P_LEXIT) != 0);
++			boot_progress_stage(umi_msg);
++		}
+ 
+ 		child_task = (task_t)get_threadtask(child_thread);
+ 		assert(child_task != TASK_NULL);
+@@ -619,6 +635,7 @@
+ 		 * non consistent vmmap, kill the child and reap it internally.
+ 		 */
+ 		if (parent_proc->p_lflag & P_LEXIT || !thread_is_active(current_thread())) {
++			boot_progress_stage("FORK deadparent-reap");
+ 			task_terminate_internal(child_task);
+ 			proc_list_lock();
+ 			child_proc->p_listflag |= P_LIST_DEADPARENT;
+@@ -627,6 +644,7 @@
+ 
+ 		/* "Return" to the child */
+ 		task_clear_return_wait(get_threadtask(child_thread), TCRW_CLEAR_ALL_WAIT);
++		boot_progress_stage("FORK child-woken");
+ 
+ 		/* drop the extra references we got during the creation */
+ 		task_deallocate(child_task);
+--- a/bsd/kern/kern_exit.c
++++ b/bsd/kern/kern_exit.c
+@@ -2865,6 +2865,17 @@
+ 	pg = pgrp_leave_locked(child);
+ 	LIST_REMOVE(child, p_list);
+ 	parent->p_childrencnt--;
++	/* UMI bring-up: a REAP line before any EL0 IN svc=1 says the child was
++	 * reaped without the parent ever waiting, which is the signature of the
++	 * dead-parent path in fork(). */
++	{
++		char umi_msg[96];
++
++		(void)snprintf(umi_msg, sizeof(umi_msg),
++		    "REAP cpid=%d ppid=%d fl=%d", child->p_pid, parent->p_pid,
++		    (int)flags);
++		boot_progress_stage(umi_msg);
++	}
+ 	LIST_REMOVE(child, p_sibling);
+ 	bool no_more_children = (flags & REAP_DEAD_PARENT) &&
+ 	    LIST_EMPTY(&parent->p_children);
+@@ -3116,6 +3127,15 @@
+ 	}
+ 	/* list lock is held when we get here any which way */
+ 	if (nfound == 0) {
++		char umi_msg[96];
++
++		/* p is the exhausted child cursor here (run-24 panicked on it at
++		 * _wait4_nocancel+0x1e0, far=0x60); q is the waiting parent. */
++		(void)snprintf(umi_msg, sizeof(umi_msg),
++		    "WAIT4 A none pid=%d cnt=%d",
++		    (q != NULL) ? (int)q->p_pid : -1,
++		    (q != NULL) ? (int)q->p_childrencnt : -1);
++		boot_progress_stage(umi_msg);
+ 		proc_list_unlock();
+ 		return ECHILD;
+ 	}
+@@ -3395,6 +3415,13 @@
+ 	/* No child processes that could possibly satisfy the request? */
+ 
+ 	if (nfound == 0) {
++		char umi_msg[96];
++
++		(void)snprintf(umi_msg, sizeof(umi_msg),
++		    "WAIT4 B none pid=%d cnt=%d",
++		    (q != NULL) ? (int)q->p_pid : -1,
++		    (q != NULL) ? (int)q->p_childrencnt : -1);
++		boot_progress_stage(umi_msg);
+ 		proc_list_unlock();
+ 		return ECHILD;
+ 	}
