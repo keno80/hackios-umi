@@ -11,6 +11,7 @@ exec >>"$LOG" 2>&1
 echo "== 1. 归档指纹 =="
 sha256sum "$SRC/patches/umi-xnu/early-entry-trace.patch" \
           "$SRC/patches/umi-scripts/umi-early-trace.inc"
+sha256sum "$SRC"/patches/umi-xnu/zz*.patch
 
 echo "== 2. 安装前目标树 =="
 for f in patches/umi-xnu/early-entry-trace.patch scripts/umi-early-trace.inc; do
@@ -19,6 +20,10 @@ done
 
 cp -f "$SRC/patches/umi-xnu/early-entry-trace.patch" "$ROOT/patches/umi-xnu/early-entry-trace.patch"
 cp -f "$SRC/patches/umi-scripts/umi-early-trace.inc" "$ROOT/scripts/umi-early-trace.inc"
+# 归档里的 umi-xnu 补丁一律覆盖过去：构建只认 ext4 那份，Windows 侧新落的补丁必须同步
+for p in "$SRC"/patches/umi-xnu/zz*.patch; do
+  cp -f "$p" "$ROOT/patches/umi-xnu/$(basename "$p")"
+done
 
 echo "== 3. 安装后自检 =="
 fail=0
@@ -28,6 +33,14 @@ for f in patches/umi-xnu/early-entry-trace.patch scripts/umi-early-trace.inc; do
   printf '%s: UMI_BAND=%s CR=%s\n' "$f" "$b" "$cr"
   [ "$b" -ge 1 ] || fail=1
   [ "$cr" -eq 0 ] || fail=1
+done
+for p in "$SRC"/patches/umi-xnu/zz*.patch; do
+  n=$(basename "$p")
+  cr=$(tr -dc '\r' <"$ROOT/patches/umi-xnu/$n" | wc -c)
+  same=$(cmp -s "$p" "$ROOT/patches/umi-xnu/$n" && echo yes || echo no)
+  printf '%s: CR=%s same=%s\n' "$n" "$cr" "$same"
+  [ "$cr" -eq 0 ] || fail=1
+  [ "$same" = yes ] || fail=1
 done
 [ "$fail" -eq 0 ] && echo "INSTALL OK" || echo "INSTALL FAIL"
 
