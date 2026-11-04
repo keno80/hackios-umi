@@ -38,4 +38,13 @@ fi
 echo
 echo "== 内核字符串里的打点前缀 =="
 strings -a "$K" 2>/dev/null | grep -c 'UMI XNU'
+
+echo
+echo "== I 步：挂根探针是否真进了内核 =="
+for s in 'CMDLINE %s' 'SETCONF iombr=' 'MOUNTFAIL err=' 'MR bdevvp=' 'MR exhausted last=' 'MR %s=%d'; do
+  printf '%-24s hit=%s\n' "$s" "$(strings -a "$K" 2>/dev/null | grep -c -F "$s")"
+done
+echo "-- 补丁重放到工作树的证据 --"
+X=/home/unixnu/code/umi-work-pin/out/umi-xnu/umi/tree/.cache/xnu-work
+grep -c "boot_progress_stage(umi_msg)" "$X/bsd/kern/bsd_init.c" "$X/bsd/vfs/vfs_subr.c" 2>/dev/null
 echo "DONE"
