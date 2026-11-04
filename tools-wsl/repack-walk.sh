@@ -21,17 +21,22 @@ A3=$(strings -a "$K" | grep -c -F 'INIT returned')
 A4=$(strings -a "$K" | grep -c -F 'EL0 MACH')
 A5=$(strings -a "$K" | grep -c -F 'EL0 IN svc=')
 A6=$(strings -a "$K" | grep -c -F 'EL0 OUT svc=')
-echo "mockfs=$M 挂根探针=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6"
+# P 步新增：fork/wait 闭环的三段判据，缺任何一段这档就不配上机
+F1=$(strings -a "$K" | grep -c -F 'FORK cx0=0')
+F2=$(strings -a "$K" | grep -c -F 'REAP cpid=')
+F3=$(strings -a "$K" | grep -c -F 'WAIT4 reaped-return')
+echo "mockfs=$M 挂根探针=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6 fork=$F1/$F2/$F3"
 if [ "$M" -lt 50 ] || [ "$P" -ne 1 ] || [ "$A1" -lt 1 ] || [ "$A2" -lt 1 ] || \
-   [ "$A3" -lt 1 ] || [ "$A4" -lt 1 ] || [ "$A5" -lt 1 ] || [ "$A6" -lt 1 ]; then
-  echo "== 拒绝出图：内核缺假根驱动或 EL0 IN/OUT 探针（mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6）"
+   [ "$A3" -lt 1 ] || [ "$A4" -lt 1 ] || [ "$A5" -lt 1 ] || [ "$A6" -lt 1 ] || \
+   [ "$F1" -lt 1 ] || [ "$F2" -lt 1 ] || [ "$F3" -lt 1 ]; then
+  echo "== 拒绝出图：内核缺假根驱动、EL0 探针或 fork/wait 闭环探针（mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6 fork=$F1/$F2/$F3）"
   echo "   上机一次的成本远高于一道断言，别把手机时间花在没带判据的档上。"
   exit 1
 fi
 echo
 echo "== 1. payload 卷 =="
 python3 /mnt/e/Code/HackIos/tools-wsl/build-xnu-payload.py \
-  --kernel "$K" --title "M-WALK Mi 10 8G" --mockfs-initrd "$INITRD"
+  --kernel "$K" --title "P-WALK2 Mi 10 8G" --mockfs-initrd "$INITRD"
 echo "payload rc=$?"
 echo
 echo "== 2. bootimg + 自检 + 交付"
