@@ -99,13 +99,23 @@ def adt_has_ramdisk(path):
 
 def main():
     ap = argparse.ArgumentParser(description="组本机 umi 的 XNU 引导卷（64 MiB FAT32 ramdisk）")
+    ap.add_argument("--kernel", type=Path, default=KERNEL,
+                    help="要打进卷的内核 Mach-O（默认 source-kernel.macho，RAM-console 档传 entry-trace-kernel.macho）")
+    ap.add_argument("--title", default=None,
+                    help="菜单标题，用来在照片里一眼认出跑的是哪一档镜像")
     ap.add_argument("--mockfs-initrd", type=Path,
                     help="发布成 Payloads/launchd.macho，并用 rd=md0 让内核挂 mockfs RAM 假根")
     cli = ap.parse_args()
+    kernel = cli.kernel.resolve()
     mockfs = cli.mockfs_initrd.resolve() if cli.mockfs_initrd else None
     if mockfs and (not mockfs.is_file() or mockfs.stat().st_size < 4096):
         sys.exit(f"mockfs initrd 要是至少一页的常规文件：{mockfs}")
     menu = MENU
+    if cli.title:
+        marker = 'title = "Mi 10 8G - XNU bring-up"'
+        if menu.count(marker) != 1:
+            sys.exit("菜单标题锚点没唯一命中")
+        menu = menu.replace(marker, f'title = "{cli.title}"')
     if mockfs:
         marker = 'path = "Payloads/kernel.macho"\n'
         if menu.count(marker) != 1:
@@ -113,7 +123,7 @@ def main():
         menu = menu.replace(marker, marker + 'initrd = "Payloads/launchd.macho"\n')
         menu = menu.replace(f'args = "{ARGS}"', f'args = "rd=md0 {ARGS}"')
 
-    for path in (KERNEL, ADT):
+    for path in (kernel, ADT):
         if not path.is_file():
             sys.exit(f"缺少输入：{path}")
 
@@ -130,7 +140,7 @@ def main():
     payloads = STAGE / "EFI/UniXNU/Payloads"
     payloads.mkdir(parents=True)
     (STAGE / "EFI/UniXNU/unixnu.toml").write_text(menu)
-    shutil.copyfile(KERNEL, payloads / "kernel.macho")
+    shutil.copyfile(kernel, payloads / "kernel.macho")
     shutil.copyfile(ADT, payloads / "kernel.macho.adt")
     if mockfs:
         shutil.copyfile(mockfs, payloads / "launchd.macho")
@@ -173,7 +183,7 @@ def main():
             "fats": fats, "total_sectors": sectors, "sectors_per_fat": sectors_per_fat32,
             "ext_flags": hex(ext_flags), "version": list(version), "signature": hex(sig),
         },
-        "kernel_sha256": sha(KERNEL), "kernel_bytes": KERNEL.stat().st_size,
+        "kernel_sha256": sha(kernel), "kernel_bytes": kernel.stat().st_size,
         "adt_sha256": sha(ADT), "adt_bytes": ADT.stat().st_size,
         "apps": {name: sha(path) for name, path in efi.items()},
         "menu_args": f"rd=md0 {ARGS}" if mockfs else ARGS,
