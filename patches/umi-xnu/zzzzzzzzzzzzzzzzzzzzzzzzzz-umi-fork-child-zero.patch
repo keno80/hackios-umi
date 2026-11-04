@@ -1,0 +1,18 @@
+--- a/bsd/kern/kern_fork.c
++++ b/bsd/kern/kern_fork.c
+@@ -643,6 +643,15 @@
+ 		}
+ 
+ 		/* "Return" to the child */
++		/*
++		 * UMI bring-up: fork1() left this thread's user frame x0 set to the
++		 * child's own pid (thread_set_child(child_thread, proc_getpid(...))),
++		 * and thread_bootstrap_return restores x0 straight out of that frame,
++		 * so the child came back to EL0 with a non-zero fork() result and took
++		 * the parent's branch. POSIX wants 0 here.
++		 */
++		thread_set_child(child_thread, 0);
++		boot_progress_stage("FORK cx0=0");
+ 		task_clear_return_wait(get_threadtask(child_thread), TCRW_CLEAR_ALL_WAIT);
+ 		boot_progress_stage("FORK child-woken");
+ 

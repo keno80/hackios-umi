@@ -11,7 +11,7 @@ WS=/home/unixnu/code/umi-work-pin
 LOGD=/home/unixnu/code/UniXNU-main/out/unixnu-logs
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 IMG=/mnt/e/Code/HackIos/out/fixtures/launchd-walk.macho
-NAME=run-25-fork
+NAME=run-26-forkfix
 MARK=/tmp/walk-start-marker
 
 echo "== 1. 等构建结束（最多 3600s）=="
@@ -35,11 +35,11 @@ ls -la "$K"
 echo
 echo "== 4. 静态验收（strings 计数）=="
 S=$(strings -a "$K")
-for pat in 'FORK cpid=' 'FORK deadparent-reap' 'FORK child-woken' 'REAP cpid=' 'WAIT4 A none' 'WAIT4 B none' 'EL0 IN svc=' 'EL0 OUT svc=' 'INIT exec ok'; do
+for pat in 'FORK cpid=' 'FORK deadparent-reap' 'FORK child-woken' 'FORK cx0=0' 'REAP cpid=' 'WAIT4 A none' 'WAIT4 B none' 'EL0 IN svc=' 'EL0 OUT svc=' 'INIT exec ok'; do
   printf '%-26s %s\n' "$pat" "$(printf '%s' "$S" | grep -c "$pat")"
 done
 MISS=0
-for pat in 'FORK cpid=' 'FORK deadparent-reap' 'FORK child-woken' 'REAP cpid=' 'EL0 IN svc=' 'EL0 OUT svc='; do
+for pat in 'FORK cpid=' 'FORK deadparent-reap' 'FORK child-woken' 'REAP cpid=' 'EL0 IN svc=' 'EL0 OUT svc=' 'FORK cx0=0'; do
   c=$(printf '%s' "$S" | grep -c "$pat")
   [ "$c" -ge 1 ] || { echo "MISSING $pat"; MISS=1; }
 done
