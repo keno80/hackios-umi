@@ -1,0 +1,46 @@
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -1945,19 +1945,39 @@
+ 		/* UMI bring-up: one line per flavour, first hit only. This is the only
+ 		 * positive proof on this panel that EL0 actually executed user code. */
+ 		{
+-			static int umi_el0_mach_done;
++			static uint8_t umi_el0_mach_seen[128]; /* == MACH_TRAP_TABLE_COUNT */
++			int umi_mach_no = -trap_no;
+ 
+-			if (!umi_el0_mach_done) {
++			if (umi_mach_no >= 0 && umi_mach_no < (int)sizeof(umi_el0_mach_seen) &&
++			    !umi_el0_mach_seen[umi_mach_no]) {
+ 				char umi_msg[96];
+ 
+-				umi_el0_mach_done = 1;
++				umi_el0_mach_seen[umi_mach_no] = 1;
+ 				(void)snprintf(umi_msg, sizeof(umi_msg),
+-				    "EL0 MACH svc=%d pc=0x%llx", trap_no,
++				    "EL0 IN svc=%d pc=0x%llx", trap_no,
+ 				    (unsigned long long)get_saved_state_pc(state));
+ 				boot_progress_stage(umi_msg);
+ 			}
+ 		}
+ 		mach_syscall(state);
++		/* UMI bring-up: same evidence contract as the unix side -- the IN line proves
++		 * EL0 reached this trap, the OUT line proves the mach handler actually returned.
++		 * Numbers are negative here because mach traps are -table_index in x16. */
++		{
++			static uint8_t umi_el0_mach_out_seen[128]; /* == MACH_TRAP_TABLE_COUNT */
++			int umi_mach_no = -trap_no;
++
++			if (umi_mach_no >= 0 && umi_mach_no < (int)sizeof(umi_el0_mach_out_seen) &&
++			    !umi_el0_mach_out_seen[umi_mach_no]) {
++				char umi_msg[96];
++
++				umi_el0_mach_out_seen[umi_mach_no] = 1;
++				(void)snprintf(umi_msg, sizeof(umi_msg),
++				    "EL0 OUT svc=%d r0=0x%llx", trap_no,
++				    (unsigned long long)saved_state64(state)->x[0]);
++				boot_progress_stage(umi_msg);
++			}
++		}
+ 	} else {
+ 		/* Counting perhaps better in the handler, but this is how it's been done */
+ 		thread->syscalls_unix++;
