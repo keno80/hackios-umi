@@ -32,7 +32,9 @@ echo "-- 校验 --"
 for f in tools-win/*.ps1 tools-win/*.cmd tools-win/*.bat; do
   [ -f "$f" ] || continue
   BOM=$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')
-  CRLF=$(awk '/\r$/{n++} END{print n+0}' "$f")
+  # 这个 Git Bash 里 grep -c $'\r' 和 awk '/\r$/' 都会假阴性（实测同一文件 od -c 全是 \r\n，
+  # 两种写法都报 0），只有 perl 数得对——仪器不准就等于没有仪器。
+  CRLF=$(perl -ne '$n++ if /\r$/; END{print $n+0}' "$f")
   LINES=$(wc -l < "$f")
   echo "$f bom=$BOM crlf=$CRLF lines=$LINES"
 done

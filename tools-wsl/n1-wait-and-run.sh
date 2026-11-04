@@ -11,7 +11,7 @@ WS=/home/unixnu/code/umi-work-pin
 LOGD=/home/unixnu/code/UniXNU-main/out/unixnu-logs
 K=$WS/out/umi-xnu/umi/kernel/source-kernel.macho
 IMG=/mnt/e/Code/HackIos/out/fixtures/launchd-walk.macho
-NAME=run-27-reaptail
+NAME=run-29-pipefix
 MARK=/tmp/walk-start-marker
 
 echo "== 1. 等构建结束（最多 3600s）=="
@@ -54,8 +54,8 @@ cd /mnt/e/Code/HackIos || exit 1
 setsid nohup bash tools-wsl/run-umi-qemu.sh "$NAME" \
   --mockfs-initrd "$IMG" \
   --args "-v keepsyms=1 kt_fixed_zones=120" \
-  --read-user-address 100004040:96 \
-  --read-user-address 1000040c0:96 \
+  --read-user-address 100004040:256 \
+  --read-user-address 100004140:256 \
   --capture-screen --timeout 150 \
   > "$LOGD/qemu-$NAME.launch.log" 2>&1 &
 echo "launcher pid=$!"
@@ -74,6 +74,11 @@ echo
 echo "== 7. 取回屏 =="
 cp "$RUN/screen.png" /mnt/e/Code/HackIos/out/screens/qemu-$NAME.png 2>/dev/null && \
   sha256sum /mnt/e/Code/HackIos/out/screens/qemu-$NAME.png || echo NO-SCREEN
+
+echo
+echo "== 7b. 取回现场整份 JSON（解码器不能被打印截断）=="
+cp "$RUN/gdb-stop.json" "/mnt/e/Code/HackIos/out/probes/$NAME-gdb-stop.json" 2>/dev/null && \
+  echo "copied $NAME-gdb-stop.json" || echo NO-JSON-COPY
 
 echo
 echo "== 8. 现场关键字段 =="

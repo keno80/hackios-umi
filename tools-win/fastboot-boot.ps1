@@ -11,13 +11,19 @@
     工具与镜像目录都是自动探测：优先 E:\Android\SDK\platform-tools，
     镜像优先当前目录，没有就用 C:\Users\admin\Desktop\phone-capture。
 #>
-param([string]$ImageDir = '')
+param(
+    [string]$ImageDir = '',
+    # 自测与「工具不在常规位置」用的后门：指到含 adb.exe/fastboot.exe 的目录
+    [string]$Tools = ''
+)
 
 $ErrorActionPreference = 'Continue'
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
 # ---------- 工具定位 ----------
-$ToolCandidates = @('E:\Android\SDK\platform-tools', 'E:\platform-tools', 'D:\platform-tools',
+# 变量名一律写全：PowerShell 不区分大小写，早先的 $FB（fastboot 路径）被函数里的
+# 局部 $fb（设备序列号列表）顶掉，真机上直接拿序列号当命令执行。
+$ToolCandidates = @($Tools, 'E:\Android\SDK\platform-tools', 'E:\platform-tools', 'D:\platform-tools',
                     "$env:LOCALAPPDATA\Android\Sdk\platform-tools")
 $ToolDir = ''
 foreach ($c in $ToolCandidates) {
@@ -28,32 +34,33 @@ if (-not $ToolDir) {
     if ($g) { $ToolDir = Split-Path $g.Source -Parent }
 }
 if (-not $ToolDir) {
-    Write-Host '[X] 没找到 fastboot.exe（platform-tools）。装好后重跑，或改脚本顶部 $ToolCandidates。' -ForegroundColor Red
+    Write-Host '[X] 没找到 fastboot.exe（platform-tools）。装好后重跑，或用 -Tools 指定目录。' -ForegroundColor Red
     exit 1
 }
-$ADB = Join-Path $ToolDir 'adb.exe'
-$FB  = Join-Path $ToolDir 'fastboot.exe'
+$AdbExe = Join-Path $ToolDir 'adb.exe'
+$FastbootExe = Join-Path $ToolDir 'fastboot.exe'
 
 # ---------- 设备枚举 ----------
 function Get-AdbList {
     $r = @()
-    if (-not (Test-Path $ADB)) { return ,$r }
-    foreach ($line in (& $ADB devices 2>$null)) {
+    if (-not (Test-Path $AdbExe)) { return ,$r }
+    foreach ($line in (& $AdbExe devices 2>$null)) {
         $t = ('' + $line).Trim()
         if (-not $t) { continue }
         if ($t -like 'List of devices*' -or $t.StartsWith('*')) { continue }
         $p = $t -split '\s+'
-        if ($p.Count -ge 2) { $r += [pscustomobject]@{ Serial = $p[0]; State = $p[1] } }
+        if ($p[0] -and $p.Count -ge 2) { $r += [pscustomobject]@{ Serial = $p[0]; State = $p[1] } }
     }
     return ,$r
 }
 
 function Get-FastbootList {
     $r = @()
-    foreach ($line in (& $FB devices 2>$null)) {
+    foreach ($line in (& $FastbootExe devices 2>$null)) {
         $t = ('' + $line).Trim()
         if (-not $t) { continue }
-        $r += (($t -split '\s+')[0])
+        $s = (($t -split '\s+')[0])
+        if ($s) { $r += $s }
     }
     return ,$r
 }
@@ -61,11 +68,11 @@ function Get-FastbootList {
 function Wait-AnyDevice([int]$Seconds) {
     $end = (Get-Date).AddSeconds($Seconds)
     while ((Get-Date) -lt $end) {
-        $fb = Get-FastbootList
-        if ($fb.Count -gt 0) { return ("fastboot: " + ($fb -join ', ')) }
-        $ad = @(Get-AdbList | Where-Object { $_.State -ne 'offline' })
-        if ($ad.Count -gt 0) {
-            $s = ($ad | ForEach-Object { "$($_.Serial)($($_.State))" }) -join ', '
+        $fbList = Get-FastbootList
+        if ($fbList.Count -gt 0) { return ("fastboot: " + ($fbList -join ', ')) }
+        $adList = @(Get-AdbList | Where-Object { $_.State -ne 'offline' })
+        if ($adList.Count -gt 0) {
+            $s = ($adList | ForEach-Object { "$($_.Serial)($($_.State))" }) -join ', '
             return ("adb: " + $s)
         }
         Start-Sleep -Milliseconds 800
@@ -74,12 +81,12 @@ function Wait-AnyDevice([int]$Seconds) {
 }
 
 function Show-Devices {
-    $fb = Get-FastbootList
-    $ad = Get-AdbList
-    if ($fb.Count -gt 0) { Write-Host ("  fastboot  : " + ($fb -join ', ')) -ForegroundColor Green }
+    $fbList = Get-FastbootList
+    $adList = Get-AdbList
+    if ($fbList.Count -gt 0) { Write-Host ("  fastboot  : " + ($fbList -join ', ')) -ForegroundColor Green }
     else { Write-Host '  fastboot  : （无）' }
-    if ($ad.Count -gt 0) {
-        foreach ($d in $ad) { Write-Host ("  adb       : {0}  {1}" -f $d.Serial, $d.State) -ForegroundColor Green }
+    if ($adList.Count -gt 0) {
+        foreach ($d in $adList) { Write-Host ("  adb       : {0}  {1}" -f $d.Serial, $d.State) -ForegroundColor Green }
     } else { Write-Host '  adb       : （无）' }
 }
 
@@ -138,38 +145,38 @@ function Pick-Image {
 
 # ---------- 动作 ----------
 function Do-RebootToBootloader {
-    $ad = @(Get-AdbList | Where-Object { $_.State -eq 'device' })
-    if ($ad.Count -eq 0) {
+    $adList = @(Get-AdbList | Where-Object { $_.State -eq 'device' })
+    if ($adList.Count -eq 0) {
         Write-Host '[X] 没有在线的 adb 设备，发不了 reboot bootloader。' -ForegroundColor Yellow
         Write-Host '    手机已经 in fastboot 就直接选 [2]；' 
         Write-Host '    否则关机后长按 音量下 + 电源 进 fastboot，再选 [2]。'
         return
     }
-    $serial = $ad[0].Serial
-    if ($ad.Count -gt 1) {
+    $serial = $adList[0].Serial
+    if ($adList.Count -gt 1) {
         Write-Host '  多台 adb 设备：'
-        for ($i = 0; $i -lt $ad.Count; $i++) { Write-Host ("   [{0}] {1}" -f ($i + 1), $ad[$i].Serial) }
+        for ($i = 0; $i -lt $adList.Count; $i++) { Write-Host ("   [{0}] {1}" -f ($i + 1), $adList[$i].Serial) }
         $t = Read-Host '  选哪台（回车=第一台）'
         $n = 1
         if ($t -and [int]::TryParse($t.Trim(), [ref]$n)) { }
         else { Write-Host '  无效序号，用第一台' -ForegroundColor DarkGray }
-        if ($n -ge 1 -and $n -le $ad.Count) { $serial = $ad[$n - 1].Serial }
+        if ($n -ge 1 -and $n -le $adList.Count) { $serial = $adList[$n - 1].Serial }
     }
     Write-Host ("[>] adb -s {0} reboot bootloader" -f $serial)
-    & $ADB -s $serial reboot bootloader 2>&1 | ForEach-Object { Write-Host ("    " + $_) }
+    & $AdbExe -s $serial reboot bootloader 2>&1 | ForEach-Object { Write-Host ("    " + $_) }
     $hit = Wait-AnyDevice 60
     if ($hit) { Write-Host ("[OK] " + $hit) -ForegroundColor Green }
     else { Write-Host '[!] 1 分钟内没发现 fastboot/adb 设备，回开始页' -ForegroundColor Yellow }
 }
 
 function Do-Boot([string]$Img) {
-    $fb = Get-FastbootList
-    if ($fb.Count -eq 0) {
+    $fbList = Get-FastbootList
+    if ($fbList.Count -eq 0) {
         Write-Host '[X] 现在没有 fastboot 设备，boot 发不出去。先选 [1]（或手动进 fastboot）。' -ForegroundColor Yellow
         return
     }
     Write-Host ("[>] fastboot boot `"{0}`"   （零写入）" -f $Img)
-    & $FB boot $Img 2>&1 | ForEach-Object { Write-Host ("    " + $_) }
+    & $FastbootExe boot $Img 2>&1 | ForEach-Object { Write-Host ("    " + $_) }
     $hit = Wait-AnyDevice 60
     if ($hit) { Write-Host ("[OK] " + $hit) -ForegroundColor Green }
     else { Write-Host '[!] 1 分钟内没发现 fastboot/adb 设备，回开始页' -ForegroundColor Yellow }
