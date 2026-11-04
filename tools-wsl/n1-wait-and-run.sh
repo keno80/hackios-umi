@@ -77,8 +77,8 @@ cp "$RUN/screen.png" /mnt/e/Code/HackIos/out/screens/qemu-$NAME.png 2>/dev/null 
 
 echo
 echo "== 7b. 取回现场整份 JSON（解码器不能被打印截断）=="
-cp "$RUN/gdb-stop.json" /mnt/e/Code/HackIos/out/probes/run28-gdb-stop.json 2>/dev/null && \
-  echo "copied run28-gdb-stop.json" || echo NO-JSON-COPY
+cp "$RUN/gdb-stop.json" "/mnt/e/Code/HackIos/out/probes/$NAME-gdb-stop.json" 2>/dev/null && \
+  echo "copied $NAME-gdb-stop.json" || echo NO-JSON-COPY
 
 echo
 echo "== 8. 现场关键字段 =="

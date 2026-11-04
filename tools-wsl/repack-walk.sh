@@ -1,7 +1,7 @@
 #!/bin/bash
-# M 步：打「mockfs 假根 + 走查件 + EL0 IN/OUT」真机档。
+# Q 步：打「mockfs 假根 + 23 发走查件 + EL0 IN/OUT」真机档。
 # 内核用 QEMU 验过的同一份 source-kernel.macho（不带 --early-trace），
-# 这样屏上判据与 QEMU 侧逐字节同源；INITRD 换成 12 发走查件。
+# 这样屏上判据与 QEMU 侧逐字节同源；INITRD 换成 23 发走查件（Q 步：fd/vm/event 面）。
 set -u
 LOG=/mnt/e/Code/HackIos/out/probes/repack-walk.txt
 : > "$LOG"
@@ -25,18 +25,21 @@ A6=$(strings -a "$K" | grep -c -F 'EL0 OUT svc=')
 F1=$(strings -a "$K" | grep -c -F 'FORK cx0=0')
 F2=$(strings -a "$K" | grep -c -F 'REAP cpid=')
 F3=$(strings -a "$K" | grep -c -F 'WAIT4 reaped-return')
-echo "mockfs=$M 挂根探针=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6 fork=$F1/$F2/$F3"
+# Q 步新增：走查件本身的闸——内核有探针但件还是 12 发老件，上机就是白跑一趟
+W1=$(strings -a "$INITRD" | grep -c -F 'UMI-WALK-Q-PIPE-PAYLOAD')
+echo "mockfs=$M 挂根探针=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6 fork=$F1/$F2/$F3 走查件Q=$W1"
 if [ "$M" -lt 50 ] || [ "$P" -ne 1 ] || [ "$A1" -lt 1 ] || [ "$A2" -lt 1 ] || \
    [ "$A3" -lt 1 ] || [ "$A4" -lt 1 ] || [ "$A5" -lt 1 ] || [ "$A6" -lt 1 ] || \
-   [ "$F1" -lt 1 ] || [ "$F2" -lt 1 ] || [ "$F3" -lt 1 ]; then
-  echo "== 拒绝出图：内核缺假根驱动、EL0 探针或 fork/wait 闭环探针（mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6 fork=$F1/$F2/$F3）"
+   [ "$F1" -lt 1 ] || [ "$F2" -lt 1 ] || [ "$F3" -lt 1 ] || [ "$W1" -lt 1 ]; then
+  echo "== 拒绝出图：内核缺假根驱动、EL0 探针、fork/wait 闭环探针，或走查件不是 Q 版"
+  echo "   （mockfs=$M mr=$P init=$A1/$A2/$A3 el0=$A4/$A5/$A6 fork=$F1/$F2/$F3 走查件Q=$W1）"
   echo "   上机一次的成本远高于一道断言，别把手机时间花在没带判据的档上。"
   exit 1
 fi
 echo
 echo "== 1. payload 卷 =="
 python3 /mnt/e/Code/HackIos/tools-wsl/build-xnu-payload.py \
-  --kernel "$K" --title "P-WALK2 Mi 10 8G" --mockfs-initrd "$INITRD"
+  --kernel "$K" --title "Q-WALK3 Mi 10 8G" --mockfs-initrd "$INITRD"
 echo "payload rc=$?"
 echo
 echo "== 2. bootimg + 自检 + 交付"
