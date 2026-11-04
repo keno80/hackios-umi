@@ -1,0 +1,20 @@
+[Defines]
+  INF_VERSION = 0x0001001B
+  BASE_NAME = UmiBootLog
+  FILE_GUID = 7C3A1F55-0E6B-4C2A-9D1F-5A8B2E4C6017
+  MODULE_TYPE = UEFI_APPLICATION
+  VERSION_STRING = 0.1
+  ENTRY_POINT = UefiMain
+
+[Sources]
+  UmiBootLog.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  UefiApplicationEntryPoint
+  UefiBootServicesTableLib
+  UefiLib

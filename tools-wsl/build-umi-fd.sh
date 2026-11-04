@@ -18,7 +18,7 @@ export CONF_PATH=$WS/out/unixnu/umi/edk2-conf
 export PACKAGES_PATH=$UEFI:$UEFI/Platforms/Xiaomi:$PKG:$EDK2:$UEFI/Common/Mu:$UEFI/Common/Mu_OEM_Sample:$UEFI/Silicon/Qualcomm:$UEFI/Silicon/Silicium
 export PYTHON_COMMAND=python3
 export PATH=$EDK2/BaseTools/BinWrappers/PosixLike:$EDK2/BaseTools/Source/C/bin:$FARM:/usr/local/bin:/usr/bin:/bin
-export CLANG_BIN=$FARM
+export CLANG_BIN=$FARM/
 export SOURCE_DATE_EPOCH=$(git -C "$UEFI" log -1 --format=%ct)
 mkdir -p "$CONF_PATH"
 for n in target tools_def build_rule; do
