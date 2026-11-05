@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""给本机真正被执行的 run_umi_qemu.py 加一条「客存可配」替换：让 QEMU 的 -m 与 ADT 的
-/chosen/dram-size 由同一个环境变量 UMI_GUEST_RAM_MIB 决定。
+"""给本机真正被执行的 run_umi_qemu.py 加两条「内存几何」旋钮：
+  UMI_GUEST_RAM_MIB      -> QEMU 的 -m 与 ADT 的 /chosen/dram-size（两者必须同动）
+  UMI_OWNED_MEMORY_MIB   -> ADT 的 /chosen/darwinboot-memory-size，也就是 darwinboot
+                            真正交给 XNU 的那块内存
 
-为什么动这一件：49-data-mac-var 里 configd/fseventsd/containermanagerd_system 三条同形
-SIGKILL（ns=1 sub=4）解出来是 OS_REASON_JETSAM + JETSAM_REASON_MEMORY_VMPAGESHORTAGE
-（bsd/sys/reason.h:88 + bsd/sys/kern_memorystatus.h:294），上游自己的归因表
-doc/vm/memorystatus_kills.md:17 把这条 code 的生产者钉在 memorystatus_thread 的
-MEMORYSTATUS_KILL_TOP_PROCESS 上——是内核 jetsam 缺页击杀，不是这些服务自己有毛病。
-而本机客存被钉死在 1 GiB：run_umi_qemu.py:257 把 --dram-size 写死 0x40000000、
-:283 把 --qemu-memory-mib 写死 "1024"，实测 49 档的 kernel.macho.adt 里
-dram-base=dram-size=1073741824。真机 umi 有 8 GiB，上游别的机型（alioth）ADT 就是 0x200000000。
+为什么要第二条旋钮（本仓实测，客存那条已被否掉）：
+  50/51 两档把 dram-size 从 1 GiB 抬到 2 GiB，屏上 MEM 行仍是 `totalMiB=320`、
+  `free min/reserved/target=267/128/4017` 逐字相同——jetsam 的百分比门槛按
+  MEMSTAT_PERCENT_TOTAL_PAGES 算的是 max_mem，而 max_mem 来自 args->memSize
+  （osfmk/arm64/sptm/arm_init_sptm.c:1551 `gPhysSize = mem_size = ...args->memSize`、
+  :1745 `max_mem = mem_size`），不是 ADT 的 dram-size。args->memSize 就是
+  darwinboot-memory-size，本机由 run_umi_qemu.py 的 --owned-memory-mib 320 钉死。
+  所以「内核以为自己能用的 RAM」= owned 区，抬客存抬不动它。
 
-两个旋钮必须一起动，否则会脱钩：arm64 XNU 只读 ADT 的 /chosen/dram-size 得到 gDramSize
-（osfmk/arm64/sptm/arm_init_sptm.c:888-893），QEMU 那边没有 -dtb（gdb-stop.py 只喂 pflash），
-所以 -m 决定「实际有多少 RAM」、dram-size 决定「内核以为有多少」。上游
-scripts/probe-darwinboot-xnu.py:327 已经是这个耦合写法（--dram-size = qemu_memory_mib*1024**2）。
-QEMU virt 在 2048/4096 MiB 下 RAM 仍是 0x40000000 起的单段连续 bank（实测 dumpdtb：
-reg=<0 0x40000000 0 0x80000000> / <0 0x40000000 1 0x00>），不存在断开问题。
+上游把 --owned-memory-mib 的 choices 写死 (256,320,512)；make-dt.py 自己的硬闸是
+0x10000000..0x100000000 且 2 MiB 对齐（scripts/qemu-entry/make-dt.py:42），比它宽得多。
+本段只把 argparse 的那道窄闸换成 env + make-dt 同款的宽闸校验，默认值仍是上游的 256，
+所以不设环境变量时产出的 ADT 与改动前逐字节相同。
 
-不设 UMI_GUEST_RAM_MIB 时默认 1024，几何与改动前逐字节相同——所以同一份替换既能当实验件、
-也能当对照组（50 档显式给 1024）。上游观测件本体与判读件都不改。
+两个旋钮都不设时（1024 / 256）几何与上游一致——同一份替换既能当实验件也能当对照件。
+上游观测件本体其它地方一字不改，判读件也不改。
 
 用法：make-run-umi-qemu-guest-ram.py [--runner PATH] [--restore]
 """
@@ -31,8 +31,11 @@ from pathlib import Path
 
 DEFAULT_RUNNER = Path("/home/unixnu/code/umi-work-pin/tools/run_umi_qemu.py")
 MARKER = "UMI_GUEST_RAM"
-CHOICES = (512, 1024, 2048, 4096, 8192)
+OWNED_MARKER = "UMI_OWNED_MEMORY_MIB"
+GUEST_CHOICES = (512, 1024, 2048, 4096, 8192)
 
+ARG_ANCHOR = ('    p.add_argument("--owned-memory-mib", choices=(256,320,512), type=int, default=256)\n',
+              '    p.add_argument("--owned-memory-mib", type=int, default=OWNED_MEMORY_MIB)\n')
 ANCHORS = [
     ("import json\nfrom pathlib import Path\n",
      "import json\nimport os\nfrom pathlib import Path\n"),
@@ -40,14 +43,34 @@ ANCHORS = [
      '        "--owned-memory-size", hex(a.owned_memory_mib << 20), "--dram-size", hex(GUEST_RAM_MIB << 20),\n'),
     ('               "--qemu-memory-mib", "1024", "--gic-version", "3",\n',
      '               "--qemu-memory-mib", str(GUEST_RAM_MIB), "--gic-version", "3",\n'),
+    ARG_ANCHOR,
 ]
 
-DEF_BLOCK = (f'# {MARKER}: one knob for both the QEMU -m size and the ADT /chosen/dram-size that\n'
-             '# arm64 XNU reads into gDramSize. The two must move together or the kernel maps RAM\n'
-             '# QEMU did not provide. Default 1024 keeps the upstream geometry byte-identical.\n'
-             f'GUEST_RAM_MIB = int(os.environ.get("{MARKER}_MIB", "1024"))\n'
-             f'assert GUEST_RAM_MIB in {CHOICES}, GUEST_RAM_MIB\n')
+DEF_BLOCK = (
+    "# " + MARKER + ": one knob for both the QEMU -m size and the ADT /chosen/dram-size that\n"
+    "# arm64 XNU reads into gDramSize. The two must move together or the kernel maps RAM\n"
+    "# QEMU did not provide. Default 1024 keeps the upstream geometry byte-identical.\n"
+    "GUEST_RAM_MIB = int(os.environ.get(\"" + MARKER + "_MIB\", \"1024\"))\n"
+    "assert GUEST_RAM_MIB in " + repr(GUEST_CHOICES) + ", GUEST_RAM_MIB\n"
+    "# " + OWNED_MARKER + ": the ADT darwinboot-memory-size, i.e. the region darwinboot hands\n"
+    "# XNU as args->memSize. arm_init_sptm.c turns that into max_mem, and max_mem -- not\n"
+    "# dram-size -- is what jetsam thresholds and vm_page_free_* are computed against.\n"
+    "# Upstream argparse allowed only 256/320/512; make-dt.py:42 allows 256 MiB..4 GiB at\n"
+    "# 2 MiB alignment, which is the gate reproduced here. Default 256 is upstream's.\n"
+    "OWNED_MEMORY_MIB = int(os.environ.get(\"" + OWNED_MARKER + "\", \"256\"))\n"
+    "assert 256 <= OWNED_MEMORY_MIB <= 4096 and OWNED_MEMORY_MIB % 2 == 0, OWNED_MEMORY_MIB\n"
+)
 DEF_ANCHOR = 'UPSTREAM = ROOT / "sources/UniXNU"\n'
+
+# 上一版只有 dram-size/-m 这一条旋钮，它的定义块正好是本段 DEF_BLOCK 的前五行——
+# 所以撤补丁时必须先试长的再试短的，反过来会把 owned 那半截留在文件里。
+LEGACY_DEF_BLOCK = (
+    "# " + MARKER + ": one knob for both the QEMU -m size and the ADT /chosen/dram-size that\n"
+    "# arm64 XNU reads into gDramSize. The two must move together or the kernel maps RAM\n"
+    "# QEMU did not provide. Default 1024 keeps the upstream geometry byte-identical.\n"
+    "GUEST_RAM_MIB = int(os.environ.get(\"" + MARKER + "_MIB\", \"1024\"))\n"
+    "assert GUEST_RAM_MIB in " + repr(GUEST_CHOICES) + ", GUEST_RAM_MIB\n"
+)
 
 
 def apply(content):
@@ -61,13 +84,22 @@ def apply(content):
 
 
 def restore(content):
-    if DEF_BLOCK not in content:
+    removed = None
+    for block in (DEF_BLOCK, LEGACY_DEF_BLOCK):
+        if block in content:
+            removed = block
+            break
+    if removed is None:
         raise SystemExit(f"看不到 {MARKER} 定义块，原件可能已被别的改动覆盖，停手")
-    content = content.replace(DEF_BLOCK, "", 1)
+    content = content.replace(removed, "", 1)
     for before, after in ANCHORS:
-        if content.count(after) != 1:
-            raise SystemExit(f"反查锚点 {after.strip()!r} 命中 {content.count(after)} 次，停手")
-        content = content.replace(after, before, 1)
+        # 旧版没动过 owned-memory-mib 那条 argparse，撤旧版补丁时它是「本来就没打过」的样子。
+        if content.count(after) == 1:
+            content = content.replace(after, before, 1)
+        elif content.count(before) == 1:
+            continue
+        else:
+            raise SystemExit(f"锚点 {after.strip()!r} 命中 {content.count(after)} 次，停手")
     return content
 
 
@@ -86,9 +118,12 @@ def main():
             print(f"runner={args.runner} 本来就没打过本段补丁，无需撤")
             return 0
         content = restore(original)
-    elif MARKER in original:
+    elif DEF_BLOCK in original:
         print(f"runner={args.runner} 已应用 sha256={before_sha}")
         return 0
+    elif MARKER in original:
+        raise SystemExit(f"runner={args.runner} 上有旧版 {MARKER} 补丁（定义块不同），"
+                         "先 --restore 再重打，别叠")
     else:
         content = apply(original)
 
@@ -97,6 +132,7 @@ def main():
     print(f"runner={args.runner} {'已撤销' if args.restore else '已应用'} sha256 "
           f"{before_sha[:16]} -> {hashlib.sha256(args.runner.read_bytes()).hexdigest()[:16]}")
     print(f"  本进程环境里的 {MARKER}_MIB = {os.environ.get(MARKER + '_MIB', '（未设，取默认 1024）')}")
+    print(f"  本进程环境里的 {OWNED_MARKER} = {os.environ.get(OWNED_MARKER, '（未设，取上游默认 256）')}")
     return 0
 
 

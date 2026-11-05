@@ -66,7 +66,9 @@ DATA_SYMBOLS=(native_owner_data_status:4 native_owner_data_stage:4 native_owner_
               umi_exec_trace_observation:160 boot_progress_display_owned:4
               native_data_persist_state:4 native_data_persist_pages:8
               gDramSize:8 gDramBase:8
+              max_mem:8 mem_size:8 sane_size:8 gPhysSize:8
               vm_page_free_count:4 vm_page_free_min:4 vm_page_free_target:4
+              vm_page_free_reserved:4
               vm_page_pageable_internal_count:4 vm_page_speculative_count:4
               vm_page_wire_count:4 memorystatus_vm_pressure_level:4
               memorystatus_compressor_space_shortage:4
@@ -78,12 +80,16 @@ HAS_EXIT=0
 if echo "$DUMP" | grep -q ' _exit_records$'; then HAS_EXIT=1; else echo "  注意：本档没有 _exit_records（screen 诊断没链进来？）"; fi
 # UMI_GUEST_RAM_MIB：一次同时抬 QEMU 的 -m 与 ADT 的 /chosen/dram-size（两件必须同动，
 # 见 tools-wsl/make-run-umi-qemu-guest-ram.py 的说明）。不设就是上游原样 1 GiB。
-if [ -n "${UMI_GUEST_RAM_MIB:-}" ]; then
+# UMI_OWNED_MEMORY_MIB：抬 ADT 的 darwinboot-memory-size——darwinboot 交给 XNU 的那块，
+# arm_init_sptm.c 把它变成 max_mem，jetsam 的百分比门槛按它算。50/51 两档实测抬 dram-size
+# 抬不动 max_mem（屏上 MEM totalMiB 两档都是 320），所以单变量必须动这一条。
+# 两个都不设 = 上游几何（1 GiB 客存 / 256 MiB owned）。
+if [ -n "${UMI_GUEST_RAM_MIB:-}${UMI_OWNED_MEMORY_MIB:-}" ]; then
   tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/make-run-umi-qemu-guest-ram.py > /tmp/make-run-umi-qemu-guest-ram.py
   python3 /tmp/make-run-umi-qemu-guest-ram.py --runner "$WS/tools/run_umi_qemu.py" || exit 1
 fi
 ARGS=(--root-volume --systemos-volume --data-ramdisk "$SEED" --trust-cache "$B"
-      --no-vmm-property --owned-memory-mib 320 --timeout "${TIMEOUT:-600}" --capture-screen
+      --no-vmm-property --owned-memory-mib "${UMI_OWNED_MEMORY_MIB:-320}" --timeout "${TIMEOUT:-600}" --capture-screen
       --args "-v keepsyms=1 kt_fixed_zones=120 umi-pmgr=2 boot-progress=2 native-ufs-root=1 offline-apfs-load=1 -apfs_shared_datavolume${BYPASS:+ panic_on_crash_disabled=1}")
 if [ -n "${STOP_ADDR:-}" ]; then
   ARGS+=(--stop-address "$STOP_ADDR")
@@ -119,20 +125,24 @@ KERNEL=out/umi-xnu/umi/kernel/${KNAME:-qemu-systemos-data}.macho bash /tmp/run-u
 echo "run_umi_qemu exit=$?"
 
 echo
-echo "== 1.5 客存几何核对（三处必须一致：环境 / QEMU 实际 -m / 内核吃的 ADT）=="
-python3 - "$WS/out/umi-qemu/$NAME" "${UMI_GUEST_RAM_MIB:-（未设，上游默认 1024）}" <<'PY'
+echo "== 1.5 内存几何核对（三处必须一致：环境 / QEMU 实际 -m / 内核吃的 ADT）=="
+python3 - "$WS/out/umi-qemu/$NAME" "${UMI_GUEST_RAM_MIB:-（未设，上游默认 1024）}" "${UMI_OWNED_MEMORY_MIB:-（未设，本档显式给 320）}" <<'PY'
 import json, struct, sys
-run, want = sys.argv[1], sys.argv[2]
+run, want_ram, want_owned = sys.argv[1], sys.argv[2], sys.argv[3]
 sys.path.insert(0, "/home/unixnu/code/umi-work-pin/devices/umi/scripts")
 from umi_adt import decode
 adt = decode(open(f"{run}/esp/EFI/UniXNU/Payloads/kernel.macho.adt", "rb").read())
 chosen = adt.at("/chosen").properties
-for name in ("dram-base", "dram-size"):
-    v = struct.unpack("<Q", chosen[name])[0]
-    print(f"  ADT /chosen/{name} = {v} ({v / 1024**2:.0f} MiB)")
+for name in sorted(chosen):
+    if not any(k in name for k in ("dram", "memory", "mem-")):
+        continue
+    raw = chosen[name]
+    v = struct.unpack("<Q", raw)[0] if len(raw) == 8 else None
+    print(f"  ADT /chosen/{name} = {v if v is not None else raw.hex()} ({'' if v is None else f'{v / 1024**2:.0f} MiB '}/ {raw.hex()})")
 stop = json.load(open(f"{run}/gdb-stop.json"))
 print("  gdb-stop 记的 qemu_memory_mib =", stop.get("qemu_memory_mib", "缺"))
-print("  环境 UMI_GUEST_RAM_MIB =", want)
+print("  环境 UMI_GUEST_RAM_MIB =", want_ram)
+print("  环境 UMI_OWNED_MEMORY_MIB =", want_owned)
 PY
 
 echo

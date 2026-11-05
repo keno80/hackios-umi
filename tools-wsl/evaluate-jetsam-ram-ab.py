@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""客存单变量 A/B 的判读件：把多档取证并排摊开，回答「jetsam 缺页击杀有没有随客存消失」。
+"""内存几何单变量 A/B 的判读件：把多档取证并排摊开，回答「jetsam 缺页击杀有没有随可用内存消失」。
 
 背景：49-data-mac-var 的 failed_process_exits 三条同形 `ns=1 sub=4`——
   ns=1 = OS_REASON_JETSAM（bsd/sys/reason.h:88）
   sub=4 = JETSAM_REASON_MEMORY_VMPAGESHORTAGE（bsd/sys/kern_memorystatus.h:294）
   生产者 = memorystatus_thread 的 MEMORYSTATUS_KILL_TOP_PROCESS（doc/vm/memorystatus_kills.md:17）
 本机客存被钉死 1 GiB（run_umi_qemu.py 写死 --qemu-memory-mib 1024 与 --dram-size 0x40000000），
-而真机 umi 有 8 GiB。所以假设是「客存不够 → 内核 jetsam 杀服务」，不是服务自己有毛病。
+而真机 umi 有 8 GiB。50/51 两档把客存抬到 2 GiB 之后 jetsam 照旧——**这条假设已否**：
+内核可用池按 max_mem 算，而 max_mem 来自 args->memSize（ADT darwinboot-memory-size，
+本机 --owned-memory-mib 320），不是 dram-size。所以真旋钮是 owned，判读件两档都要读四处。
+
 本件配合 tools-wsl/make-run-umi-qemu-guest-ram.py 做单变量对照。
 
 三条几何必须同读，否则「抬了没抬」说不清：
@@ -41,6 +44,7 @@ JETSAM_CODE = {1: "GENERIC", 2: "MEMORY_HIGHWATER", 3: "VNODE", 4: "MEMORY_VMPAG
 EXIT_TOTAL_LEN = 2382
 RECENT_OFF, RECENT_N, SLOT = 12, 4, 120
 FAILED_OFF, FAILED_N = 492, 3
+PAGE = 4096  # native 4K；仪表读到的全是「页数」，换算成 MiB 才看得出压力量级
 
 
 def symbols(kernel):
@@ -70,14 +74,18 @@ class Run:
             self.counts = list(struct.unpack_from("<3I", blob))
             self.recs = self.records(blob)
         adt = run / "esp/EFI/UniXNU/Payloads/kernel.macho.adt"
-        self.adt_dram = self.dram_from_adt(adt) if adt.exists() else None
+        self.chosen = self.adt_chosen(adt) if adt.exists() else {}
+        self.adt_dram = struct.unpack("<Q", self.chosen["dram-size"])[0] if self.chosen else None
+        # darwinboot-memory-size 才是 args->memSize 的出处（arm_init_sptm.c:1551 → max_mem），
+        # dram-size 只决定 QEMU 给了多少 RAM、内核以为自己有多少（gDramSize）。
+        self.adt_owned = (struct.unpack("<Q", self.chosen["darwinboot-memory-size"])[0]
+                          if "darwinboot-memory-size" in self.chosen else None)
 
     @staticmethod
-    def dram_from_adt(path):
+    def adt_chosen(path):
         sys.path.insert(0, str(ROOT / "devices/umi/scripts"))
         from umi_adt import decode
-        props = decode(path.read_bytes()).at("/chosen").properties
-        return struct.unpack("<Q", props["dram-size"])[0]
+        return decode(path.read_bytes()).at("/chosen").properties
 
     def value(self, name, size):
         key = f"{self.table['_' + name]:#x}:{size:x}"
@@ -115,14 +123,39 @@ def main():
     parsed = [Run(ROOT, name, table) for name in args.runs]
     width = max(len(r.name) for r in parsed)
 
-    print("== 1. 客存几何三处（内核只吃 ADT 的 dram-size；三处必须一致）==")
+    print("== 1. 内存几何四处（客存/owned/内核可用池；owned 那条才是 max_mem 的出处）==")
     for r in parsed:
         live = r.value("gDramSize", 8)
         qemu = r.stop.get("qemu_memory_mib")
         ok = r.adt_dram and qemu and live and r.adt_dram == qemu * 1024**2 == live
-        print(f"  {r.name:<{width}}  ADT={mib(r.adt_dram):<9} QEMU -m={str(qemu) + ' MiB' if qemu else '缺':<9} "
-              f"内核 _gDramSize={mib(live):<9} 三处一致={'PASS' if ok else '不符/缺读'}"
-              f"   dram-base={hex(r.value('gDramBase', 8) or 0)}")
+        print(f"  {r.name:<{width}}  ADT dram={mib(r.adt_dram):<9} QEMU -m={str(qemu) + ' MiB' if qemu else '缺':<9} "
+              f"_gDramSize={mib(live):<9} 三处一致={'PASS' if ok else '不符/缺读'}")
+        print(f"      ADT darwinboot-memory-size={mib(r.adt_owned):<9} "
+              f"_max_mem={mib(r.value('max_mem', 8)):<9} _mem_size={mib(r.value('mem_size', 8)):<9} "
+              f"_sane_size={mib(r.value('sane_size', 8)):<9} _gPhysSize={mib(r.value('gPhysSize', 8))}"
+              f"   （屏上 MEM totalMiB 就是 _max_mem>>20）")
+
+    def mb(pages):
+        return f"{pages * PAGE // 1024 ** 2} MiB" if isinstance(pages, int) else "缺"
+
+    print("\n== 1.5 jetsam 触发判据本体（kern_memorystatus.c:3652 就是 available <= critical 这一条比较）==")
+    for r in parsed:
+        avail = r.value("memorystatus_available_pages", 4)
+        crit = r.value("memorystatus_available_pages_critical", 4)
+        if avail is None or crit is None:
+            print(f"  {r.name:<{width}}  本档没读这批仪表（要带 memorystatus_* 读址集的档，52/53）")
+            continue
+        print(f"  {r.name:<{width}}  available={mb(avail)} critical={mb(crit)} "
+              f"level={r.value('memorystatus_level', 4)}%  ->  低于临界={'是（该杀）' if avail <= crit else '否'}")
+        print(f"      三条门槛：base={mb(r.value('memorystatus_available_pages_critical_base', 4))} "
+              f"idle={mb(r.value('memorystatus_available_pages_critical_idle', 4))} "
+              f"pressure={mb(r.value('memorystatus_available_pages_pressure', 4))}  "
+              f"vm_pressure_level={r.value('memorystatus_vm_pressure_level', 4)} "
+              f"compressor_shortage={r.value('memorystatus_compressor_space_shortage', 4)}")
+        print(f"      页：free={mb(r.value('vm_page_free_count', 4))}/target={mb(r.value('vm_page_free_target', 4))}"
+              f"/min={mb(r.value('vm_page_free_min', 4))}  wire={mb(r.value('vm_page_wire_count', 4))} "
+              f"pageable_internal={mb(r.value('vm_page_pageable_internal_count', 4))} "
+              f"speculative={mb(r.value('vm_page_speculative_count', 4))}")
 
     print("\n== 2. 进程退出面 ==")
     for r in parsed:
@@ -144,14 +177,23 @@ def main():
 
     print("\n== 4. 结论口径 ==")
     base, *rest = parsed
+
+    def below_critical(r):
+        a, c = r.value("memorystatus_available_pages", 4), r.value("memorystatus_available_pages_critical", 4)
+        return None if a is None or c is None else (a <= c)
+
     for r in rest:
         if len(r.jetsam) < len(base.jetsam):
-            verdict = "减少，支持「客存不够 → jetsam 杀服务」"
+            verdict = "减少，支持「内核可用池不够 → jetsam 杀服务」"
         elif len(r.jetsam) > len(base.jetsam):
-            verdict = "反而增加，客存不是唯一因（或这一趟时序本身有抖动）"
+            verdict = "反而增加，可用池不是唯一因（或这一趟时序本身有抖动）"
         else:
-            verdict = "没变，客存这条假设被这一档否掉"
+            verdict = "没变，这一档没打掉它"
         print(f"  {r.name} 相对基线 {base.name}：环内 JETSAM {len(base.jetsam)} -> {len(r.jetsam)}（{verdict}）")
+        b0, b1 = below_critical(base), below_critical(r)
+        if b0 is not None and b1 is not None:
+            gate = "触发判据成立" if b0 and not b1 else ("判据两边都成立" if b0 and b1 else "判据两边都不成立")
+            print(f"      available<=critical：{base.name}={b0} -> {r.name}={b1}（{gate}）")
 
     print("\n== 5. 停点 ==")
     for r in parsed:
