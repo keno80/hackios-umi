@@ -420,14 +420,89 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   （49 档 `lsd` 还 absent），`EXIT 191 nonzero35 crash30 drop1`
 - **为什么 320 MiB 一定不够**：prelink 内核 + dyld shared cache + 三个 APFS 窗全是 **wired**，
   `wire=290 MiB` 吃掉池子的 91%，`free` 直接掉到 `free_min` 以下——`sub=4` 就是这条的字面输出
-- 🔴 **下一闸（55 档新露出来的，`ns=2 sub=5` = `OS_REASON_SIGNAL` / signal 5 = SIGTRAP）**：
-  `failed_process_exits` = `liveactivitiesd p156`、`liveactivitiesd p160`（同形 `PC=0x1d46a4f8 LR=0x1d46a4cc`）、
-  `SpringBoard p144`（`PC=0xbc44725e LR=0xbc43972e`）；屏上 `STACK 2/2` 三发同带滑移 `+1d0b8000`，`crash=30`。
-  取证通路还差一件：判读件目前只解 `recent[4]`/`failures[3]`，`_exit_records` 的 `crash[3]×400`（偏移 852）
-  与 `reason[330]`（偏移 2052）没解——把 EL0 `PC` 按各件加载窗映回具体指令才知道是断言、`__builtin_trap` 还是缺符号
+- ✅ **下一闸（`ns=2 sub=5` = SIGTRAP）已归因到指令，见下面 U 步之八之二**：三发全是 `EC=0x3c`(BRK) 且 `FAR=0`
+  = **件自己打的 trap**，不是缺符号；SpringBoard 那发有方法名，liveactivitiesd 那发是 Swift 强制解包 nil
 - `tools-wsl/evaluate-jetsam-ram-ab.py` — 判读件：四处几何并排 + `available<=critical` 与三条门槛
   （base/idle/pressure）+ 页仪表 + 环内记录按 exit reason 归类；`--kernel` 指判读用的档名。
   环形缓冲深度是硬限制（`recent[4]`/`failures[3]` 只留最近几发，总量看 `process_exit_counts`）
+
+### U 步之八之二：55 档三发 SIGTRAP 的指令级归因（静态反解到此为止，别再来一趟）
+- **崩溃环才是 trap 级证据**：`_exit_records` 的 `crash[3]×400`@852，每行形状
+  `p<pid> <name> sig<N> PC<hex> LR<hex> E<esr> F<far> +<slide> bt<帧表>`；`reason[330]`@2052 **只由 SIGABRT 路径填，
+  SIGTRAP 恒空**（54/55 两档实测都空——那是语义如此，不是取数失败）
+- **三发全是 `ESR.EC=0x3c`(BRK) + `FAR=0`** ⇒ 件自己打的 trap。`brk #0` = SpringBoard p162
+  （`PC==LR=0x19f3df2ec`）；`brk #1` = liveactivitiesd p156/p160（同形 `PC=0x1c18f64f8 / LR=0x1c18f64cc`，
+  而 `0x1c18f64cc` 本体是 `cbz x20 -> 0x1c18f64f8`，函数形状 `bl → mov x20,x0 → cbz x20 → brk #1`
+  = **Swift 强制解包 nil**）；滑移恒 `+0x1d0b8000`，去滑移才是 cache 静态址
+- **trap 点有名字**：`0x19f3df2ec` = FrontBoardServices `__text+0x1c534`，落在
+  `-[FBSDisplayMonitor _initWithBookendObserver:transformer:]`（imp `0x19f3dee70`，`PC-imp=0x47c`）；
+  调用方帧 = **`-[FBDisplayManager invalidate]`**（FrontBoard `__text+0x50114`）→ 再下面是 libdispatch 两帧 + `dyld+0x37228`。
+  所以 SpringBoard 的死法是 **runloop 里 invalidate 去构造显示监视器，撞上有意打的 trap**——与屏上
+  `DISPLAY: … OS display service not connected` 是同一件事的两面
+- 方法名的来路（下次要别的件直接照抄）：`__objc_methlist` 相对方法列表（头 `{0xC000000F,count}`，条目 12 B rel32）
+  从段首顺序走 + 「≥80% 条目 types 落全局 `__objc_methtype` 串头」筛假列表；**name 基准 = 全 cache 共用锚址
+  `B=0x181d6b32c`（libobjc.A.dylib `__OBJC_RO` 段首 +4）**，types/imp 基准 = 字段自身址；类名 = `__objc_const` 里
+  那枚 methlist 指针的**前一个 u64**，`RO_META_CLASS=1<<6` 定 `+`/`-` 前缀
+- 🔴 **静态路线判死，别再试这两条**（u463/u464）：①整枚 `userdata-root.img`（9,382,658,048 B）只有 51 枚页对齐
+  `dyld_v1   arm64\0` 头、57 条映射，**vm 上界 `0x234494000`**，件表 3354 件里 Foundation/CoreFoundation/
+  libswiftCore/UIKitCore/CFNetwork/libdispatch/SwiftUI **全在**——而 trap 前那些跳板岛的终点在
+  `0x2800e9b64 / 0x2800edc88 / 0x2800f1cec / 0x28159f690 / 0x28f75c6bc / 0x2b51aa4dc`，比上界还高 1.2~2.0 GB，
+  **不属于这份 cache**；②LC_SYMTAB 的 `stroff/strsize` 对所有件同值（`0x14b385e0` / 56,750,964），但「文件首+off」
+  「vm 基+off」两种基准前 32 枚 nlist 全不可读，已知符号串在 3.3 GB 窗内 needle 0 命中 ⇒ 符号池基准未定
+- 指令判据（这轮错过一次，掩码别再抄错）：`adrp` `(w&0x9F000000)==0x90000000` 且对 `((immhi<<2)|immlo)` 做 **21 位**
+  符号扩展；`add imm12` `(w&0xFFC00000)==0x91000000`（bit22=sh12）；`ldr`（unsigned offset 64 位）
+  `(w&0xFFC00000)==0xF9400000` 且**立即数 = imm12×8**；`br/blr/ret` `(w&0xFFFFFC1F) ∈ {0xD61F0000,0xD63F0000,0xD65F0000}`
+  （写成 `0xFFFFFFE0` 永不匹配，Rn 在 bits[9:5]）；址→文件 = `头文件址 + mapping.fileOff + (v − mapping.address)`
+- `tools-wsl/evaluate-jetsam-ram-ab.py` 已扩到崩溃环：`3.5` ESR 解码 + 去滑移 + bt 帧、`3.6` reason 段、
+  `4.5` 闸的交接。54/55 实测 `rc=0`：54 崩溃环 0 发、55 三发全解出（`out/probes/u465.txt`）
+
+### V 步：上游站点、收录与设备页（口径已核对到源码，别再靠 WebFetch 猜）
+
+`unixnu.com` 的**源就在 `UniXNU-main/docs/`**（VitePress，双语：`docs/` = en、`docs/zh/` = zh）。
+`/zh/porting/` = `docs/zh/porting/index.md`（六层栈），`/zh/porting/steps` = `docs/zh/porting/steps.md`（**八步**）。
+
+- **上游八步**：1 收集设备输入 → 2 选择共享支持 → 3 创建设备仓库 → 4 解析并检查构建配置 →
+  5 准备硬件描述和固件 → 6 按依赖顺序适配驱动（平台与内存→存储→显示→输入→GPU→Wi-Fi→DSP/音频/电源）→
+  7 构建并启动 → 8 完成并发布仓库
+- **完成等级只有五个**（`docs/zh/porting/records.md`）：`planned / implemented / host-verified / device-verified / not-applicable`。
+  **我们绝大多数证据是 `host-verified`（QEMU+Linux），真机侧只到 UEFI 菜单与内核前段屏上证据**——
+  别说成 device-verified
+- **umi 在上游目录里已经有了**：`devices.toml` 的 `[[device]] name="umi"` → `reAAAq/UniXNU-umi`，
+  `format = 1`、`legacy_page = "preserve"`、**`revision = 3eb7257…` 正是本地那棵树的头**。
+  页 = `docs/devices/umi.md` + `docs/zh/devices/umi.md`（**手写页，工作流不会覆盖 preserve 页**），
+  上页报的是**那台 12 GiB/256 GB** 到 iPadOS 17.7.11 Hello/Setup + ST FTS touch（attempt 80），
+  页面自己写明「完整复现仍缺本地 ABI/provenance 记录、实测 DTB、验证过的固件导入、匹配的 Apple 组件和**打包好的 Data 种子**」
+  ——**这几样我们基本都做出来的**，这是最有价值的可贡献点。另有 3 个社区 fork 条目（AGXMX666 / mouya-q / neowiseq，全是「仓库链接」页）
+- **收录机制**（`scripts/sync-devices.py`，工作流 `sync-devices.yml` 每天 UTC 00:00/12:00 = 北京 08:00/20:00；
+  手动立刻跑：`gh workflow run sync-devices.yml --repo UniXNU/UniXNU`）。检索三条（都带 `fork:true is:public`）：
+  `org:UniXNU` / `topic:unixnu` / `unixnu in:name,description`
+- **新条目进不来的两道硬闸（源码实测，`sync-devices.py:165-182` / `:258-266`）**：
+  ①`board.toml` 必须**同时**有 `[board].name`（匹配 `[a-z0-9][a-z0-9-]*`）**和 `[components]` 表**，
+  缺任一条 `board_data()` 返 `None` 直接跳过——**reAAAq 那份 `board.toml` 恰恰没有 `[components]`**（只有 11 个段，无 schema_version）；
+  ②`signature = (board.toml 的 blob oid, porting.toml 的 oid)`，与已收录条目**逐字节相同会被去重跳过**
+  → 所以「原样 fork 挂上去」不会出现在页面上，至少要动 `board.toml` 一处
+- **格式 2 才生成页面正文**：`board.schema_version = 2` → `format = 2`；此时工作流按固定 commit 读
+  `porting.toml` 校验，`record_state` 三态 `available / invalid / missing`。非格式 2 且非 preserve 的页 = **只有 `[owner/repo](链接)` 一行**
+- **`porting.toml` 校验判据的唯一出处 = `scripts/porting-record.py`**（本地可跑：
+  `python3 scripts/porting-record.py check --device ../UniXNU-<dev> [--base origin/main]`，过了打印 `umi: 13 structured areas checked`）：
+  `schema_version = 1`；`[device]` 的 name/soc/os_profile 必须与 `board.toml` 逐字相等；
+  **13 个 area 必需**（configuration/firmware/cpu/memory/storage/display/input/gpu/network/audio/power/packaging/diagnostics）；
+  每 area 的 `inputs/configuration/procedure/findings/completion/limits/next_action` **七个字段都得是非空字符串数组**（空着就报 `requires concrete entries`）、
+  `paths` 必须仓库相对（禁 `/` 与 `..`）；`board.components.include` **连同 `components.toml` 的依赖闭包**必须被某些 area 的
+  `components` 全覆盖（漏一个报 `components without an area`——三个 alioth 社区 fork 就死在这）；
+  `evidence` 的 `reference` 只能是 **HTTPS 或仓库内已提交文件的相对路径**（`check` 会验文件真存在），
+  `host`/`device` 类还必须带 `command` + **完整 40 位 commit**；`host-verified`/`device-verified` 必须有对应 kind 的证据；
+  `not-applicable` 的 `components` 必须为空。CI 门 = 复制 `examples/device/.github/workflows/porting-record.yml`
+  （三行 `uses: UniXNU/UniXNU/.github/workflows/porting-record.yml@main`），它跑 `--base` 那条：**每个改动的非文档文件必须归某个 area，且该 area 的 findings 或 evidence 同 PR 内要变**
+- **贡献口径**（`CONTRIBUTING.md`）：仓库职责——板级策略进 `UniXNU-<device>`、SoC 公共进 `UniXNU-<soc>-common`（SM8250 那份目前是 `FFT-infra/UniXNU-sm8250-common`）、
+  可复用驱动进组件仓、**构建驱动/组件目录/OS profile/模板/文档站进 UniXNU 本体**；补丁按 ARM64/SoC/OS/device/component 五序 series；
+  commit 前缀 `feat|fix|docs|build|chore(<area>)` 一 commit 一主题；**文档改动 en+zh 同 PR**，新页要挂进 `config.mts` 两个 sidebar，`npm run build` 断链即失败；
+  License = BSD-2-Clause-Patent
+- 🔴 **两条硬红线**：①**不得提交** Apple IPSW、kernelcache、磁盘镜像、trust cache、**Data 种子**、厂商固件
+  ——输入写 `proprietary-files.txt`，文件留 `.cache/firmware`（我们那枚 `.cdr` 正好在此列，`out/` 已 gitignore）；
+  ②**trust cache / 代码签名 / 启动策略类缺陷私下发维护者，不开公开 issue**——我们那批 AMFI/prelink/信任缓存结论属于此类
+- **同 SoC 的格式 2 范例就在本地**：`docs/.vitepress/device-records/alioth.toml`（543 行，SM8250 + 同一枚 IPSW，
+  13 area 全填，`storage/packaging/diagnostics` 到 `device-verified`）——写 umi 的记录拿它当模板，别自己发明字段
 
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
@@ -541,12 +616,22 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   `free 129<min 266` → `626>507`、`available 17 MiB` → `69 MiB`、`counts [667,376,0]` → `[191,36,30]`、
   `native_ram_block_writes 257 → 1173`，屏上 `MEM totalMiB=512` 且 `SpringBoard p144`/`lsd p105`/`backboardd p57` 全活。
   真因是 wired 吃掉池子 91%（290/320 MiB：prelink 内核 + dyld cache + 三个 APFS 窗都是 wired）。
-  **下一闸换成 `ns=2 sub=5`（SIGTRAP）三发**：`liveactivitiesd p156/p160`（同形 `PC=0x1d46a4f8`）+
-  `SpringBoard p144`（`PC=0xbc44725e`），`crash=30`——要拿 `crash[3]×400`/`reason[330]` 段才能映回指令，详见 U 步之八
+  **下一闸换成 `ns=2 sub=5`（SIGTRAP）三发**，且已归因到指令：三发全是 `brk`（`EC=0x3c`、`FAR=0`），
+  SpringBoard 那发在 `-[FBSDisplayMonitor _initWithBookendObserver:transformer:]` 里、调用方是
+  `-[FBDisplayManager invalidate]`；liveactivitiesd 那发是 Swift 强制解包 nil。详见 U 步之八之二
+- ✅ **U 步之八之二（SIGTRAP 指令级归因结案，2026-11-05）**：判读件扩到 `crash[3]×400`@852 与 `reason[330]`@2052
+  并真跑过（`out/probes/u465.txt`，54 崩溃环 0 发 / 55 三发全解）。`reason` 段对 SIGTRAP 恒空是语义如此。
+  方法名靠 `__objc_methlist` 相对列表 + 全 cache 共用 name 锚 `B=0x181d6b32c`；**静态反解路线判死**——
+  跳板岛终点落在 `0x28~0x2b` 区，比这份 cache 的 vm 上界 `0x234494000` 高 1.2~2.0 GB，而整枚 8.74 GiB 镜像
+  再无第二组 `dyld_v1` 头；LC_SYMTAB 符号池基准两种试法全不可读（u461~u464）
 - ℹ️ **Mac VM：现在是硬需求，别删**（本轮校准）。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm`、官方 trustcache 资格化，
   但**可写 Data 种子只能由 macOS 的 `hdiutil`/`diskutil` 造**（`newfs_apfs` 才会写 checkpoint 描述符区），
   上游自己也只在 `hvf`（macOS）上资格化过这条路。**两趟都已实测**：空卷过「驱动认容器 + rw 挂 `/private/var`」，
   带 `/private/var` 骨架的 64 MiB 卷把 `tzinit` 那道闸一起带走（`49-data-mac-var`，见上）。
+- ℹ️ **V 步口径已核对（2026-11-05）**：上游八步里我们 **1–5 全过、6 部分、7 host 全链过 + 真机只到菜单、8 未做**；
+  **umi 页在上游站上已存在**（钉 `reAAAq/UniXNU-umi@3eb7257`，本地那棵树的头，`format=1` 手写 preserve 页，
+  报的是**另一台 12 GiB** 到 Hello/Setup+touch）。要在设备页展示我们的项目 = 两条闸（`board.toml` 要有 `[components]`、
+  内容不能与已收录条目逐字节相同）+ 一份能过 `porting-record.py check` 的 `porting.toml`；判据全部核对到源码，见上面 V 步
 
 
 ## 硬约束（用户原话级，不要重新征询）
