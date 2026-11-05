@@ -102,7 +102,7 @@ cd "$WS" || exit 1
 ensure-dev-bind || exit 1
 setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile qemu \
   --crypto-bootstrap prelinked --native-ufs --owner-root trust --systemos \
-  --gic-diagnostics --screen-diagnostics --pmgr -j 5 \
+  --gic-diagnostics --screen-diagnostics --pmgr -j 6 \
   > "$LOG" 2>&1 < /dev/null &
 echo $! > "$LOGD/kernel-systemos-pmgr.pid"
 sleep 12

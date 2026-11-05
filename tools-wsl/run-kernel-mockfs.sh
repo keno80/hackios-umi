@@ -25,7 +25,7 @@ LOG=$LOGD/kernel-mockfs-$ts.log
 echo "$LOG" > "$LOGD/kernel-mockfs-latest.txt"
 cd "$WS" || exit 1
 ensure-dev-bind || exit 1
-setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone --mockfs-root -j 5 > "$LOG" 2>&1 &
+setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone --mockfs-root -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-mockfs.pid"
 sleep 12
 pid=$(cat "$LOGD/kernel-mockfs.pid")

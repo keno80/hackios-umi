@@ -53,11 +53,11 @@ def cores_pairs():
 _hist = deque(maxlen=120)
 
 
-def qmp_dump(timeout=4.0):
-    """让常驻 live QEMU 自己吐一帧：QMP screendump format=png（作者脚本同款调法）。"""
+def qmp_dump(sock, shot, timeout=4.0):
+    """让在跑的 QEMU 自己吐一帧：QMP screendump format=png（作者脚本同款调法）。"""
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.settimeout(timeout)
-    s.connect(LIVE_SOCK)
+    s.connect(sock)
     stream = s.makefile("rw")
 
     def req(cmd, args, ident):
@@ -72,8 +72,9 @@ def qmp_dump(timeout=4.0):
                 if "error" in msg:
                     raise RuntimeError(str(msg["error"]))
                 return
+    os.makedirs(os.path.dirname(shot), exist_ok=True)
     req("qmp_capabilities", {}, 1)
-    req("screendump", {"filename": LIVE_SHOT, "format": "png"}, 2)
+    req("screendump", {"filename": shot, "format": "png"}, 2)
     s.close()
 
 
@@ -89,30 +90,50 @@ def live_running():
     return os.path.isdir(f"/proc/{pid}")
 
 
+def pick_source():
+    """(socket, 落地路径, meta)：常驻 live 实例优先，其次任意在跑的取证档。
+
+    取证档以前拿不到实时画面——run_umi_qemu.py 的 --capture-screen 只在停点抓一张，
+    而 boot-progress 的现场画在 framebuffer 上，uart 日志引导早期就冻住。
+    现在从在跑进程的 -qmp unix: 里取套接字，同一调法每 2 秒抓一帧。
+    """
+    if os.path.exists(LIVE_SOCK) and live_running():
+        return LIVE_SOCK, LIVE_SHOT, {"source": "live", "run": "live"}
+    q = M.live_qemu()
+    if q:
+        pid, sock, run = q
+        return sock, os.path.join(QEMU_OUT, "live", f"panel-{pid}.png"), \
+            {"source": "run", "run": run or "?"}
+    return None, None, None
+
+
 def live_frame():
     now = time.time()
-    if not os.path.exists(LIVE_SOCK) or not live_running():
+    sock, shot, meta = pick_source()
+    if not sock:
         _shot["err"] = ""
-        return None
+        return None, None
+    if _shot.get("sock") != sock:
+        _shot["sock"], _shot["t"] = sock, 0.0
     if now - _shot["t"] < 2.0:
-        return LIVE_SHOT if os.path.isfile(LIVE_SHOT) else None
+        return (shot, meta) if os.path.isfile(shot) else (None, None)
     if _shot["err"] and now - _shot["fail_t"] < 15:
-        return None
+        return None, None
     _shot["t"] = now
     try:
-        qmp_dump()
+        qmp_dump(sock, shot)
         _shot["err"] = ""
     except (OSError, ValueError) as e:
         _shot["err"], _shot["fail_t"] = str(e), now
-        return None
-    return LIVE_SHOT if os.path.isfile(LIVE_SHOT) else None
+        return None, None
+    return (shot, meta) if os.path.isfile(shot) else (None, None)
 
 
 def current_frame(run):
-    """(路径, 来源)：live 实时帧 > 本次 run 的停点帧 > 最近一次停点帧。"""
-    live = live_frame()
+    """(路径, 来源)：实时帧（live 或取证档）> 本次 run 的停点帧 > 最近一次停点帧。"""
+    live, meta = live_frame()
     if live:
-        return live, {"source": "live", "run": "live"}
+        return live, meta
     if run and re.fullmatch(r"[\w.\-]+", run):
         p = os.path.join(QEMU_OUT, run, "screen.png")
         if os.path.isfile(p):
@@ -180,7 +201,7 @@ def snapshot(lines, err_only):
     logs = [clean(ln) for ln in M.log_tail(st, lines, err_only)]
     lanes = [dict(name=clean(n), cpu=round(c, 1), secs=s) for n, c, s in M.lanes(st)]
     lanes = [l for l in lanes if "umi-web" not in l["name"] and "umi-mon" not in l["name"]]
-    while len(lanes) < 4:
+    while len(lanes) < M.LANE_COUNT:
         lanes.append({"name": "idle", "cpu": 0.0, "secs": 0})
     edk2c, dirty, uefic, uefid = M.repo_state()
     return {
@@ -280,7 +301,7 @@ header>.chip{margin-left:auto}
 </header>
 <div class="grid">
   <div class="col">
-    <div class="card"><h3>编译/工作通道 <span>top4 by CPU</span></h3><div id="lanes"></div>
+    <div class="card"><h3>编译/工作通道 <span id="lanelbl">top by CPU</span></h3><div id="lanes"></div>
       <div id="prog"></div></div>
     <div class="card cmd"><h3>当前命令 <span id="cmdmeta"></span></h3>
       <pre id="cmd">等待数据…</pre><div class="path" id="cmdpath"></div></div>
@@ -317,6 +338,7 @@ async function tick(){
   $("clock").textContent=d.now+(fails?`  ×${fails}`:"");
   $("clock").className="chip"+(fails?" stale":"");
   $("ncpu").textContent=d.ncpu+" 核";
+  $("lanelbl").textContent=`top${d.lanes.length} by CPU`;
   $("lanes").innerHTML=d.lanes.map((l,i)=>
     `<div class="row"><span class="nm" style="flex:0 0 22px;color:var(--dim)">w${i+1}</span>`+
     `<span class="nm">${esc(l.name)}</span>`+
@@ -357,6 +379,7 @@ async function tick(){
   if(atBottom) pre.scrollTop=pre.scrollHeight;
   const s=d.screen||{};
   $("srclbl").textContent = s.source==="live"?"live 抓帧":
+    s.source==="run"?`实时 · ${s.run||""}`:
     s.source==="stop"?`停点 · ${s.run||""}${s.old?"（上一次）":""}`:"无画面";
   if(s.v){
     const u=`/api/screen?v=${s.v}`;
@@ -365,8 +388,8 @@ async function tick(){
     $("shotmsg").textContent = s.err?("live 抓帧失败，退回停点帧："+s.err):"";
   } else {
     $("shot").style.display="none";
-    $("shotmsg").textContent = s.err?("live 抓帧失败："+s.err)
-      :"暂无画面：run_umi_qemu --capture-screen 停点会落 screen.png；起 live 实例则每 2s 抓一帧";
+    $("shotmsg").textContent = s.err?("抓帧失败："+s.err)
+      :"暂无画面：没有 qemu-system-aarch64 在跑（取证档在跑时每 2s 抓一帧，停点帧落 run 目录的 screen.png）";
   }
   $("bk").textContent=`终止当前任务 ${d.alive?("PID "+d.pid):"(无)"}`;
   $("bk").disabled=!d.alive;

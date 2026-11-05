@@ -17,6 +17,10 @@ OUT=/mnt/e/Code/HackIos/out/probes/web-launch.txt
   head -3 /var/log/umi-web.log
   echo "== state 自检"
   curl -s 'http://127.0.0.1:8765/api/state?lines=6' | python3 -c 'import json,sys; d=json.load(sys.stdin); print("keys:", len(d)); print({k: d[k] for k in ("phase","run","cpu","mem_used","ncpu")}); print("idle:", d["idle"]); print("lanes:", len(d["lanes"]), "log:", len(d["log"]["lines"]), "patches:", d["patches"], "arts:", [(a["name"],a["size"]) for a in d["artifacts"]]); print("alive:", d["alive"], "pid:", d["pid"], "elapsed:", d["elapsed"]); print("cmd:", (d["cmd"] or "(无任务)")[:200]); print("log_path:", d["log_path"])'
+  echo "== 画面自检（有 qemu 在跑就该是实时帧）"
+  curl -s 'http://127.0.0.1:8765/api/state?lines=6' | python3 -c 'import json,sys; d=json.load(sys.stdin); s=d.get("screen",{}); print("  screen:",{k:s.get(k) for k in ("source","run","v","bytes","err")}); print("  lanes:",[(l["name"],l["cpu"]) for l in d["lanes"]])'
+  curl -s -o /tmp/panel-frame.png -w '  /api/screen http=%{http_code} bytes=%{size_download}\n' http://127.0.0.1:8765/api/screen
+  head -c 8 /tmp/panel-frame.png | od -c | head -1
   echo "== html 自检"
   curl -s http://127.0.0.1:8765/ > /tmp/web-page.html; wc -c < /tmp/web-page.html
   for id in cmd cmdmeta cmdpath bp be bl br bk clock log; do

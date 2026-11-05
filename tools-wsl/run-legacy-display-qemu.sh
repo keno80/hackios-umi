@@ -18,11 +18,23 @@
 #   官方判读件硬要求的三条 provenance 旗标本机恒为 false（run_umi_qemu.py:343-344，
 #   --no-vmm-property 让 vmm_property_declared 取非），所以这条路没有被我们的观测件污染。
 #
-# 用法：run-legacy-display-qemu.sh RUN名 [init|runtime]
+# 用法：run-legacy-display-qemu.sh RUN名 [init|runtime|gate]
 #   前置：run-kernel-systemos-display.sh 编完 + run-umi-prelink.sh <同一档名>
 #   KNAME=prelink 基名（默认 qemu-systemos-display）
-#   TIMEOUT 默认 900（runtime）/ 300（init）；OWNED_MIB 默认 512；GUEST_RAM_MIB 默认 2048
+#   TIMEOUT 默认 300（gate/init）/ 900（runtime）——gate 档里它只是外层兜底，不是证据窗口
+#   OWNED_MIB 默认 512；GUEST_RAM_MIB 默认 2048
 #   BYPASS=1 额外挂原版 tunable panic_on_crash_disabled=1（服务退出不再拖着内核死）
+#
+# 三种停法的分工（TIMEOUT 不该当证据窗口，到齐就走）：
+#   gate    停 _native_legacy_display_checkpoint —— 显示生命周期的**终结点**。
+#           官方判据那五条（stage/start_result/registration_calls/gop_virtual/guard_slot）
+#           全在 native_legacy_display_probe()/late_probe() 走到终点那一刻定形
+#           （LegacyDisplayProbe.cpp:272-383：registration_observed :198、
+#             gop_mapping_observed :217 都在 start() 里；checkpoint 是成功/失败两条路的收尾）。
+#           所以一命中就够判 legacy_service_started_and_framebuffer_mapped，几十秒收工。
+#           需要 retirement/client（真帧率、真用户件开 framebuffer）那些后面才来的面，用 runtime。
+#   runtime 停 _ml_panic_trap_to_debugger（官方 runtime 停点），长窗口留给帧与进程面
+#   init    停 _execve（官方 init 档）
 set -u
 NAME=${1:-56-legacy-display-runtime}
 STAGE=${2:-runtime}
@@ -38,7 +50,8 @@ GUEST=${GUEST_RAM_MIB:-2048}
 case "$STAGE" in
   init)    TIMEOUT=${TIMEOUT:-300}  STOPSYM=_execve ;;
   runtime) TIMEOUT=${TIMEOUT:-900}  STOPSYM=_ml_panic_trap_to_debugger ;;
-  *) echo "停手：STAGE 只认 init|runtime，给了 $STAGE"; exit 1 ;;
+  gate)    TIMEOUT=${TIMEOUT:-300}  STOPSYM=_native_legacy_display_checkpoint ;;
+  *) echo "停手：STAGE 只认 init|runtime|gate，给了 $STAGE"; exit 1 ;;
 esac
 LOG=/mnt/e/Code/HackIos/out/probes/legacy-display-qemu-$NAME.log
 exec > >(tee "$LOG") 2>&1
@@ -111,20 +124,53 @@ PY
 read -r BOOTARGS < /tmp/legacy-display-bootargs.txt
 echo "  $BOOTARGS"
 
-# 两条旋钮都要的观测件（幂等；不设也是上游几何）
+# 两条旋钮都要的观测件（幂等；不设也是上游几何）。
+# ★ 补丁件插进 runner 的是 `int(os.environ.get(...))`，取值发生在**运行 run_umi_qemu.py 那一刻**，
+#   不是打补丁那一刻——所以这两个变量必须 export 给真正的执行体，只在补丁命令上赋值会让
+#   GUEST_RAM_MIB 静默回落到默认 1024（u504 实测：56 档 QEMU 的 -m 就是 1024）。
+export UMI_GUEST_RAM_MIB=$GUEST UMI_OWNED_MEMORY_MIB=$OWNED
 tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/make-run-umi-qemu-guest-ram.py > /tmp/make-run-umi-qemu-guest-ram.py
-UMI_GUEST_RAM_MIB=$GUEST UMI_OWNED_MEMORY_MIB=$OWNED python3 /tmp/make-run-umi-qemu-guest-ram.py \
-  --runner "$WS/tools/run_umi_qemu.py" || exit 1
+python3 /tmp/make-run-umi-qemu-guest-ram.py --runner "$WS/tools/run_umi_qemu.py" || exit 1
 tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/make-run-umi-qemu-chunked-read.py > /tmp/make-run-umi-qemu-chunked-read.py
 python3 /tmp/make-run-umi-qemu-chunked-read.py --runner "$WS/tools/run_umi_qemu.py" || exit 1
 
 ARGS=(--root-volume --systemos-volume --data-ramdisk "$SEED" --trust-cache "$B"
       --no-vmm-property --owned-memory-mib "$OWNED" --timeout "$TIMEOUT" --capture-screen
       --args "$BOOTARGS" --stop "$STOPSYM" --also-stop _native_legacy_backend_guard)
-if [ "$STAGE" = init ]; then
+# 停点符号必须先验在场：run_umi_qemu.py 的 symbol() 少了就整档失败，且失败在建 run 目录之前
+printf '%s\n' "$DUMP" | grep -q " ${STOPSYM}\$" || { echo "停手：停点符号 $STOPSYM 不在这份内核里"; exit 1; }
+echo "  停点 $STOPSYM 在场：$(printf '%s\n' "$DUMP" | grep -m1 " ${STOPSYM}\$")"
+if [ "$STAGE" != runtime ]; then
+  # gate/init 只等自己的证据，panic 得当兜底，否则会白等到 TIMEOUT
   ARGS+=(--also-stop _ml_panic_trap_to_debugger)
 fi
 while IFS=: read -r n sz; do ARGS+=(--read-symbol "_$n:$sz"); done < /tmp/official-symbols.txt
+# 官方读址集只有 26 枚显示仪表（u509 ast 实测），**帧提交面一枚都没读**：
+# frame_count/copy_*/swap_*/retired_*/frame_colors* 全在内核里，但官方 runner 不挂
+# → 官方 analyze 只能报 retirement_calls=0，答不了「有没有件真提交帧」。
+# 尺寸唯一出处 = 判读件里的 SIZES（按 LegacyDisplayProbe.cpp 的 volatile 声明抄，u510 原文），
+# 这里现取，杜绝两处手抄漂移。符号不在（比如没开 --legacy-display 的档）就跳过——
+# run_umi_qemu.py 的 symbol() 缺一枚会在建 run 目录之前 error 出来。
+tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/evaluate-legacy-display-gate.py > /tmp/eval-legacy-display-gate.py
+python3 - /tmp/eval-legacy-display-gate.py <<'PY' > /tmp/extra-meters.txt
+import ast, sys
+tree = ast.parse(open(sys.argv[1]).read())
+for node in tree.body:
+    if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "SIZES":
+        for name, (size, _elem) in ast.literal_eval(node.value).items():
+            print(f"{name}:{size}")
+PY
+[ -s /tmp/extra-meters.txt ] || { echo "停手：判读件的 SIZES 取不出来（件被改了？）"; exit 1; }
+OFFICIAL=" $(tr ':' ' ' < /tmp/official-symbols.txt | tr '\n' ' ') "
+EXTRA_ADDED=0
+while IFS=: read -r n sz; do
+  printf '%s\n' "$DUMP" | grep -q " _${n}\$" || continue
+  case "$OFFICIAL" in *" $n "*) continue;; esac
+  ARGS+=(--read-symbol "_$n:$sz"); EXTRA_ADDED=$((EXTRA_ADDED + 1))
+done < /tmp/extra-meters.txt
+echo "  补挂帧提交仪表 $EXTRA_ADDED 枚（官方集之外，尺寸取判读件 SIZES）"
+# checkpoint 若被早期趟先吃掉（stage 停在 1/2 而 pending 还没落地），用它跳过前 N 次命中
+[ -n "${SKIP_HITS:-}" ] && ARGS+=(--skip-target-hits "$SKIP_HITS")
 
 echo
 echo "== 3. 跑 $NAME（STAGE=$STAGE TIMEOUT=$TIMEOUT OWNED=$OWNED GUEST=$GUEST BYPASS=${BYPASS:-0}）=="
@@ -181,5 +227,18 @@ print("   recent_process_exits =", r["recent_process_exits"])
 print("   failed_process_exits =", r["failed_process_exits"])
 print("   全部 native_legacy_* =", {k: v for k, v in sorted(m.items()) if k.startswith("native_legacy")})
 PY
+echo
+echo "== 6. 本地显示五条判读件（gate 停点专用；公式与官方同式，判据不增减）=="
+tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/evaluate-legacy-display-gate.py > /tmp/eval-legacy-display-gate.py
+python3 /tmp/eval-legacy-display-gate.py "$WS/out/umi-qemu/$NAME" --nm "$NM" \
+  > "/mnt/e/Code/HackIos/out/probes/legacy-display-gate-$NAME.txt" 2>&1
+echo "   evaluate exit=$?（0=五条全过）"
+# 读址自检：本树 QEMU 的短读只验「非 E22」，回包 16 字符冒充 80 字节它不说话——按键与声明尺寸逐枚对
+echo "-- 6b. 帧提交仪表读址自检（--check-keys）--"
+python3 /tmp/eval-legacy-display-gate.py "$WS/out/umi-qemu/$NAME" --nm "$NM" --check-keys \
+  > "/mnt/e/Code/HackIos/out/probes/legacy-display-keys-$NAME.txt" 2>&1
+echo "   keys exit=$?（0=尺寸全对得上；非 0 见该档缺哪枚）"
+grep -E '没挂读址|短读|无符号' "/mnt/e/Code/HackIos/out/probes/legacy-display-keys-$NAME.txt" | head -20
+tail -30 "/mnt/e/Code/HackIos/out/probes/legacy-display-gate-$NAME.txt"
 cp -f "$WS/out/umi-qemu/$NAME/screen.png" /mnt/e/Code/HackIos/out/screens/$NAME.png 2>/dev/null && \
   echo "  屏照 -> out/screens/$NAME.png"

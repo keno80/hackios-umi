@@ -25,7 +25,7 @@ LOG=$LOGD/kernel-screen-$ts.log
 echo "$LOG" > "$LOGD/kernel-screen-latest.txt"
 cd "$WS" || exit 1
 ensure-dev-bind || exit 1
-setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone -j 5 > "$LOG" 2>&1 &
+setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-screen.pid"
 sleep 10
 pid=$(cat "$LOGD/kernel-screen.pid")

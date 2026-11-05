@@ -10,7 +10,7 @@ LOG=$LOGD/kernel-main-$ts.log
 echo "$LOG" > "$LOGD/kernel-main-latest.txt"
 echo "$LOG" > "$LOGD/latest.txt"
 cd "$MAIN" || exit 1
-setsid nohup python3 -u unixnu build kernel --skip-prelink -D /home/unixnu/code/UniXNU-umi -j 5 > "$LOG" 2>&1 &
+setsid nohup python3 -u unixnu build kernel --skip-prelink -D /home/unixnu/code/UniXNU-umi -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-main.pid"
 sleep 10
 pid=$(cat "$LOGD/kernel-main.pid")

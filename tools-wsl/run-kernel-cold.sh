@@ -27,7 +27,7 @@ echo "$LOG" > "$LOGD/kernel-cold-latest.txt"
 cd "$WS" || exit 1
 ensure-dev-bind || exit 1
 setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone \
-  --mockfs-root --early-trace -j 5 > "$LOG" 2>&1 &
+  --mockfs-root --early-trace -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-cold.pid"
 sleep 12
 pid=$(cat "$LOGD/kernel-cold.pid")
