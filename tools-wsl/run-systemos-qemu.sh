@@ -21,9 +21,6 @@ sha256sum "$K" | cut -c1-64 | sed 's/^/  kernel sha=/'
 sha256sum "$B" | cut -c1-64 | sed 's/^/  bundle sha=/'
 
 # 官方判读件要读的观测符号，一个不缺地挂上
-# 唯一不挂的是 _exit_records：它是 boot-progress 包（--screen-diagnostics）里的 static，
-# 本档没链进内核，读它会 `missing exact kernel symbol`；官方 analyze 件第 59 行正是要它，
-# 所以「跑官方 analyze 件」的前置是补 --gic-diagnostics --screen-diagnostics 重编一档。
 ARGS=(--root-volume --systemos-volume --no-vmm-property --owned-memory-mib 320
       --trust-cache "$B"
       --timeout "$TIMEOUT" --capture-screen
@@ -40,6 +37,20 @@ ARGS=(--root-volume --systemos-volume --no-vmm-property --owned-memory-mib 320
       --read-symbol _cs_native4k_page_checks:8
       --read-symbol _cs_native4k_ready_blobs:8
       --trace _trust_cache_runtime_init --trace _load_init_program)
+# _exit_records 是官方 analyze 件第 59 行无条件读的 2382 字节（0x94e），它定义在 boot-progress
+# 套件里，只有 --screen-diagnostics 档才链得进内核。符号不在就别挂——挂不存在的符号会让整个
+# run 起不来（missing exact kernel symbol），所以按档里有没有它来决定。
+NM=${UNIXNU_TOOLCHAIN:-/opt/unixnu-linux}/CommandLineTools/usr/bin/nm
+if [ -x "$NM" ] && "$NM" -n "$K" 2>/dev/null | grep -q ' _exit_records$'; then
+  # 2382 字节超过本机 gdbstub 的单包上限，先给观测件生件加「分段读」再挂这个读址
+  tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/make-run-umi-qemu-chunked-read.py \
+    > /tmp/make-run-umi-qemu-chunked-read.py
+  python3 /tmp/make-run-umi-qemu-chunked-read.py --runner "$WS/tools/run_umi_qemu.py" || exit 1
+  ARGS+=(--read-symbol _exit_records:0x94e)
+  echo "  _exit_records 在档里 -> 挂 0x94e 读址（分段读补丁已就位）"
+else
+  echo "  _exit_records 不在档里 -> 官方 analyze 件会在第 59 行 KeyError；这档需要 run-kernel-systemos-screen.sh 重编"
+fi
 if [ "$FINISH" = 1 ]; then ARGS+=(--stop "$STOP" --finish); else ARGS+=(--stop "$STOP"); fi
 
 echo "== 跑 $NAME（停点 $STOP，timeout ${TIMEOUT}s）"

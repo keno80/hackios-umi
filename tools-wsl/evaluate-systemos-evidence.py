@@ -2,10 +2,10 @@
 """U 步之五之二判读件：把官方 analyze_umi_systemos_qemu.py 的断言集逐条搬到本地实跑结果上。
 
 断言集合与上游一致、不增减；拆开是为了没过时能直接看出是哪一道闸。
-上游那份是「汇总件」不是「校验件」，它对 `_exit_records` 的依赖需要内核里链进
-boot-progress 包（--gic-diagnostics --screen-diagnostics），本档没开，
-所以那一腿在本判读件里标 BLOCKED 并写清原因，不当 PASS 也不当 FAIL。
-用法：evaluate-systemos-evidence.py [run 名，默认 39-systemos-union]
+上游那份是「汇总件」不是「校验件」，但它无条件读 `_exit_records` 2382 字节——那枚 static
+定义在 boot-progress 包里，只有 --gic-diagnostics --screen-diagnostics 档才链得进内核。
+没开那两枚旗标的档（如 39-systemos-union）在这里标 BLOCKED，不当 PASS 也不当 FAIL。
+用法：evaluate-systemos-evidence.py [run 名，默认 40-systemos-screen]
 """
 import hashlib
 import json
@@ -17,6 +17,7 @@ from pathlib import Path
 WS = Path("/home/unixnu/code/umi-work-pin")
 OS_WINDOW_SHA = "e5634d04a8ac35f024845f583394e0a35deb26a04cb0c00286a8674e25a9a4f2"
 SYSTEMOS_WINDOW_SHA = "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f"
+RUN = "40-systemos-screen"
 
 results = []
 
@@ -31,7 +32,7 @@ def blocked(name, detail):
 
 
 def report():
-    print("== 39-systemos-union 逐条判读（断言集与上游 analyze 件一致）==")
+    print(f"== {RUN} 逐条判读（断言集与上游 analyze 件一致）==")
     passed = failed = 0
     for name, ok, detail in results:
         tag = "PASS" if ok is True else "BLOCKED" if ok is None else "FAIL"
@@ -45,8 +46,9 @@ def report():
 
 
 def main():
-    run_name = sys.argv[1] if len(sys.argv) > 1 else "39-systemos-union"
-    run = WS / "out/umi-qemu" / run_name
+    global RUN
+    RUN = sys.argv[1] if len(sys.argv) > 1 else RUN
+    run = WS / "out/umi-qemu" / RUN
     try:
         data = json.loads((run / "gdb-stop.json").read_text())
         prov = json.loads((run / "provenance.json").read_text())
@@ -119,9 +121,26 @@ def main():
         check("观测块齐全", False, str(error))
         return report()
 
-    # 上游用 exits 块填三段描述字段；本档内核没链 boot-progress，读不到 _exit_records。
+    # 上游对这块不做内容断言，只是无条件读 2382 字节再拆三段描述——读不到它的档，官方件跑不完。
+    exit_rows = None
     if "_exit_records" in symbols:
-        pass
+        try:
+            exits = read("_exit_records", 2382)
+        except KeyError as error:
+            check("进程退出记录面（_exit_records 2382 B）", False, str(error))
+            exits = None
+        if exits is not None:
+            counts = dict(zip(("total", "failed", "crashes"), struct.unpack_from("<3I", exits)))
+            check("进程退出记录面（_exit_records 2382 B 可读）", len(exits) == 2382, str(counts))
+
+            def rows(start, count, size):
+                return [exits[start + i * size:start + (i + 1) * size].split(b"\0", 1)[0]
+                        .decode(errors="replace") for i in range(count)]
+
+            exit_rows = {"process_exit_counts": counts,
+                         "recent_process_exits": rows(12, 4, 120),
+                         "failed_process_exits": rows(492, 3, 120),
+                         "process_crash_descriptions": rows(852, 3, 400)}
     else:
         blocked("进程退出记录面（_exit_records 2382 B）",
                 "符号不在内核里：属 boot-progress 包，需 --gic-diagnostics --screen-diagnostics 重编一档")
@@ -141,6 +160,10 @@ def main():
     print("-- 上游汇总件会写的派生值 --")
     for k, v in derived.items():
         print(f"  {k} = {v}")
+    if exit_rows:
+        print("-- 上游从 _exit_records 拆出的三段（不是断言，只是它写进 analysis.json 的内容）--")
+        for k, v in exit_rows.items():
+            print(f"  {k} = {v}")
     print("-- 停点与屏上闸 --")
     for key in ("stop_symbol", "pc", "x0", "bounded_timeout_interrupted", "thread_count"):
         if key in data:
