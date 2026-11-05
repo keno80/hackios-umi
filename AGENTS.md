@@ -317,6 +317,62 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
     → `packed_ramdisk.pack()` + 身份 `.json`（`volume_uuid` 从 `seed.json` 取、大写归一）→ 按 `build_umi_xnu.py:92-95/:150`
     的三条闸自检 → 打印「把 `.json` 里的 `volume_uuid` 交给 `run-kernel-systemos-data.sh` 重编内核」
   - 语法/行为自测：`.json` 与既有 `data-512.json` 键集逐键一致；两件均 LF（`*.sh text eol=lf` 已覆盖 `tools-mac/`）
+- **Mac 侧现在是 agent 可直驱的**（2026-11-05 实测，别再回答「要用户手动在 Mac 上跑」）：
+  那台 VM 是 **Hyper-V** 不是 VMware（`D:\HyperOSX\VMs\macOS-HyperV`，macOS 15.8.2 / Darwin 24.6.0 / x86_64，4 vCPU / 8 GiB，
+  建/起件在 `D:\HyperOSX\create-macos-vm.ps1`、`start-macos-vm.ps1`）。
+  SSH `keno@172.17.164.116`（Hyper-V 内网，**只有宿主机够得到，WSL 在 172.28.x 段够不到**），
+  免密私钥 `out/scratch/mac_id_ed25519`（gitignore，密码一律不入库）；
+  文件双向走共享文件夹：macOS `/Volumes/Share` ↔ 宿主 `D:\HyperOSX\Share` ↔ WSL `/mnt/d/HyperOSX/Share`。
+  两个坑：非管理员会话里 `Get-VM` **返回空而不报错**、`Get-VMNetworkAdapter` 抛 `VirtualizationException`（别当成「VM 不存在」）；
+  `.ps1` 必须纯 ASCII（PS 5.1 按 ANSI 读无 BOM 的 UTF-8，中文注释会吞掉后面的引号报 ParserError）
+- **第一趟实测（2026-11-05，空卷）**：`make-owner-data-seed-mac.sh --size 32m --volname Data` 一次过——
+  `hdiutil` 产的容器 `NXSB` 命中 **5** 处（同尺子：mkapfs 的 512 MiB 种子只有 **2** 处、真 Apple 容器前 64 MiB 45 处），
+  **归因当场复核成立**：Apple 的格式化真的写 checkpoint 描述符区，`mkapfs` 不写。
+  卷 UUID `179622A6-176F-49F6-9024-8FD2D9A9CE3D`，logical sha `07340cc1…`，33,554,432 B，
+  `pack-umi-data-seed-mac.sh` 打成 `out/umi/data-seed/mac-32.dbr`（编码 278,608 B）并过 build 侧三条闸（`out/probes/u363.txt`）
+- **OS 卷里 `/private/var` 的量级（第二趟要用的初始树，u366）**：4,056 个常规文件 / **443.5 MiB** / 6,611 目录 / 1 symlink，
+  其中大头是上游显式排除的 `staged_system_apps`——所以「拷完初始树还塞得下 32 MiB」这句要靠去掉它才成立
+- **✅ 48-data-mac-seed 实测（2026-11-05，空卷种子）——挂载这一格当场过闸，Linux 造种子正式判死**：
+  `native_owner_data_status` **2 → 0**、`stage=4`、`readonly=0`、`device=0x1000002`、`native_ram_block_ready=1`、
+  身份三合一 PASS（`owner_data_seed_sha256 == ram_block_seed_sha256 == source-build` 全 `07340cc1…`），
+  官方口径 **`data_mounted_writable = True`（本机首次为真）**、`launchd_main_observed = True`。
+  也就是说 **Apple 原版 APFS 驱动认 Linux（`packed_ramdisk`）打包的 Apple 格式化容器**——内容缺口不是挂载闸
+- **同一档拿到的新面（`_exit_records` 活起来了）**：`process_exit_counts=[19,3,0]`，
+  `failed_process_exits` = `p6 launchd status=1 sig=1` / `p9 MSUEarlyBootTask status=1 sig=1` /
+  **`p17 tzinit status=200 sig=0 exit=2`**；`panic_recorded=True` 而 `critical_exit_recorded=False`
+  → 上一轮的「内核 critical-exit 路径」已被 Data 挂载打掉，屏上换成 launchd 自己的口径：
+  **`UMI PANIC userspace panic: boot task failure: tzinit - exited due to exit(2)`**（`out/screens/48-data-mac-seed.png`，红屏）。
+  `native_ram_block_writes=0` → 还没有件真往 Data 里写
+- **第二趟（有内容种子）通路已落地**：
+  - `out/scratch/u371-extract-var3.sh` — Linux 侧用 pyfsapfs 从 OS 卷解 `/private/var` 骨架（排除 `staged_system_apps`）
+    → `tar -czf` 进共享文件夹 `var-tree.tar.gz`。两条坑修好了：①libfsapfs 对本树压缩块报
+    `unsupported compression method: 9`（本机 pyfsapfs 的 `read_buffer` 只收 1 个参数，不是换 API 能绕的）→ 读不动的落 0 字节占位；
+    ②`db/timezone/localtime` 的 symlink 目标读空 → `os.symlink('')` 抛 `FileNotFoundError` 把整趟走查从那儿截断，
+    `tmp`/`run`/`Keychains` 全丢 → 现在每条目单独兜住，空目标落 `.`。结果 207 条目 / 543 KB，关键路径除
+    `keybags`、`installd/private/InstanceIDs`（OS 骨架里本来就没有，首启才建）全在场
+  - `tools-mac/seed-from-share-mac.sh` — Mac 侧一键：解 `var-tree.tar.gz` → `make-owner-data-seed-mac.sh --from-var <解出来的 private/var>`
+    → 产物落 `$SHARE/seed-out/`（`owner-data-64.cdr` + `seed.json`）。**实测 `ditto src dst`（dst 已存在）拷的是 src 的内容**，
+    所以 `--from-var` 直接指 `private/var` 就对——种子根 = `/private/var`（内核就是 mount 在这儿）
+  - `out/scratch/u373-chain.sh` — Linux 侧无人值守：取件 → `pack` → 重编 Data 档内核（新 UUID 必须重编）→ prelink
+    `qemu-systemos-data-mac64` → 取证 `49-data-mac-var`
+  - 坑：`setsid nohup … &` 经 `wsl.exe bash -lc` 起长任务会被回收（日志文件压根不出现），要用受管后台跑
+- **✅ 49-data-mac-var 实测（2026-11-05，带 `/private/var` 骨架的 64 MiB 种子）——U 步之七整步结案，且跨进 iOS 用户态**：
+  种子 UUID `FB5F1CA2-FF22-47C5-BCB0-841C2CFFDE9C`、logical sha `521c7860…`、编码 921,680 B；内核 `qemu-systemos-data-mac64.macho`
+  sha `02b1cd44…`。四元组仍是 `status=0 stage=4 readonly=0 device=0x1000003`、身份三合一 PASS，
+  **`native_ram_block_reads=194 / writes=201 / resident=2,306,048 B` → 官方口径 `actual_ram_writes_observed=True` 本机首次**
+  （上一档是 55/0——**用户件真在往 Data 里写了**）。
+  **`panic_recorded=False`、`critical_exit_recorded=False`**：900 秒里内核一次没 panic，超时停点 `pc=_ml_get_timebase+0x18`
+  （空闲环读时基，正常空转不是卡死）。
+  进程面从 `19/3/0` 跳到 **`EXIT 260 nonzero 111 crash 5`**，`recent_process_exits` 全是 `xpcproxy`（launchd 正常派生服务）；
+  屏上是完整诊断页 `LIVE: DEADLINE EXCEEDED — OS and diagnostic recording continue`，`time=892s IRQ=805534 monitor=890 root=1 process=53`，
+  **`SpringBoard p26` 与 `backboardd p147` 真在进程表里**（`runningboardd p157` 也在；`PreBoard`/`lsd` 仍 absent），
+  `OFFLINE_VIRTIO requests=771375 verified4K=1527463 failures=0`，`RAMDISK spars=1 capacityMiB=64 residentKiB=2252`
+- 🔴 **下一闸（49 档新露出来的，都不再是内核闸）**：
+  ①`failed_process_exits` = `containermanagerd_system` / `configd` / `fseventsd`，三条同形 `status=9 sig=9 ns=1 sub=4`（SIGKILL）；
+  ②崩溃环三发全是 `watchdogd sig5`（SIGTRAP），`PC/LR` 都是 EL0 址（`0x10074fb0c` 等，不是内核符号）；
+  ③屏上 `DISPLAY: VNU framebuffer diagnostics: OS display service not connected` +
+  `CLK … dt-converted=89231ms cnt=rgx-converted=892312ms`（Rogue GPU 时钟面）；
+  ④`LIVE: DEADLINE EXCEEDED` 本身——诊断页的开机期限已过，系统还在跑但没有 UI 落地
 
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
@@ -386,7 +442,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   `out/umi/screen-qemu-baseline.json`（`status=passed_real_timed_framebuffer_diagnostics`）——
   U 步之三留到最后的一条官方 baseline 就此闭合。至此本机已有的官方资格化件：owner-root 23/23、
   trustcache PASS、pmgr 六 mode PASS、SystemOS analyze 跑全、screen baseline PASS
-- 🔴 **当前闸（新）**：launchd 起来了、也派生了服务，但**被派生的服务退出把内核推进了「致命关键进程退出」路径**。
+- ✅ **（已被 U 步之七之三打掉）上一道闸：被派生的服务退出把内核推进了「致命关键进程退出」路径**。
   屏上 `UMI PANIC tzinit[171 exited -- no exit reason available -- (signal 0, exit status 30)`，`marks=3197`；
   超时停点 `pc=_halt_all_cpus+0x34`，栈是 `_unix_syscall+0x2b0` ← `_exit+0x1c` ← `_exit_with_reason+0x1b0` ←
   `_proc_exit+0x0` → `_panic_trap_to_debugger+0x38c` → `_kdp_trap+0x20`。
@@ -394,12 +450,11 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   上游观测件 `zzzzzzzzzzzz-umi-critical-exit-trace.patch` 只在其前面加了 record(8)/record(9) 观测，
   注释原话「The original crash policy and panic remain unchanged, including non-init children」——
   **所以这不是 UniXNU 自己加的保险丝，是原版对 critical 作业的退出策略真触发了**
-- 🔴 **下一闸的取数通路已经就位（本轮新增）**：`_exit_records` 之前「全零」的真因不是没人退出，
-  是 boot-progress 仪表被 `boot-progress=` boot-arg 闸在外面（见 U 步之六之四）。补上后同一档实测
-  `total=2` + 两行 `p1 init status=0 sig=0 exit=0 ns=0 sub=0`，屏上
-  `Proc ss exits: total=2 no zero-status-or-reason=0`；而 `45` 停在 monitor 第 8 圈（≈8 秒），
-  `tzinit` 是十几秒后才退的，所以**把停点放宽（深跑 + `boot-progress=2`）就能拿到它的 reason 面**。
-  诊断页还另给了一条新线索：`SpringBoard: absent from this process pass`（UI 层进程压根没被派生）
+- ✅ **上一轮那条「取数通路已经就位」已兑现**：`_exit_records` 之前「全零」的真因不是没人退出，
+  是 boot-progress 仪表被 `boot-progress=` boot-arg 闸在外面（见 U 步之六之四）。补上 `boot-progress=2` +
+  把停点放宽到深跑后，`49-data-mac-var` 真读到了 reason 面（`EXIT 260 nonzero 111 crash 5`，
+  `recent_process_exits` 全是 `xpcproxy`），诊断页那条 `SpringBoard: absent from this process pass`
+  也已翻篇——`SpringBoard p26` 在进程表里
 - ✅ **U 步之七（Data 种子归因结案，2026-11-05）**：`offline scratch Data mount failed: 2` 的 ENOENT 已归到
   原版 APFS 驱动 `nx_mount` 的 checkpoint 描述符校验——**`mkapfs` 造的容器压根没有描述符区**（种子全镜像 `NXSB`
   仅 2 处 vs 真 Apple 容器 45 处），64 枚槽全失败；`/private/var` 不可写就是 `tzinit` 那道闸的根。
@@ -408,10 +463,26 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - ✅ **U 步之七之二（Mac↔Linux 交接件落地并自测，2026-11-05）**：`tools-mac/make-owner-data-seed-mac.sh`（Mac 造 `.cdr` + 随行 `seed.json`）
   → `tools-wsl/pack-umi-data-seed-mac.sh`（Linux 打包 + 按 build 侧三条闸自检）。真跑一遍产出的 `.json` 与既有 `data-512.json`
   逐键一致；缺 `seed.json` 时 rc=1 且不留半成品（`out/probes/u357.txt`、`u358.txt`）
+- ✅ **U 步之七之三（Mac 空卷种子过闸，Data 挂载正式结案，2026-11-05）**：Mac 上 `hdiutil` 造 32 MiB 空 APFS 卷 →
+  Linux 打包 → 重编 Data 档内核 → `48-data-mac-seed` 取证。**`status 2→0`、`stage=4`、`readonly=0`、
+  `ram_block_ready=1`、身份三合一 PASS，官方口径 `data_mounted_writable` 本机首次为真**——
+  Apple 原版驱动认 Linux 打包的 Apple 格式化容器，内容缺口不是挂载闸。
+  同一档 `_exit_records` 活起来：`process_exit_counts=[19,3,0]`，失败三件 `launchd`/`MSUEarlyBootTask`/
+  **`tzinit status=200 exit=2`**；`critical_exit_recorded` 转假，屏上换成 launchd 自己的
+  **`userspace panic: boot task failure: tzinit - exited due to exit(2)`**（红屏，`out/screens/48-data-mac-seed.png`）
+- ✅ **U 步之七之九（带内容种子过闸，跨进 iOS 用户态，2026-11-05）**：`49-data-mac-var`——
+  `stage=4 readonly=0` 保持，**`native_ram_block_writes` 0 → 201**（`actual_ram_writes_observed` 本机首次为真）、
+  **`panic_recorded=False`**（900 秒一次没 panic，超时停点 `_ml_get_timebase+0x18` 是空闲环读时基）、
+  进程面 `19/3/0` → **`EXIT 260 nonzero 111 crash 5`**，`recent` 全是 `xpcproxy`，
+  屏上 **`SpringBoard p26` / `backboardd p147` / `runningboardd p157` 真在进程表里**（`PreBoard`/`lsd` 仍 absent），
+  标题换成 `LIVE: DEADLINE EXCEEDED — OS and diagnostic recording continue`。
+  **U 步之七整步结案**：闸的性质已从内核变成用户态服务——新露出来的四条（`configd`/`fseventsd`/
+  `containermanagerd_system` 被 SIGKILL、`watchdogd` 三发 SIGTRAP、`OS display service not connected`、
+  开机期限已过）都在 `out/screens/49-data-mac-var.png` 上，详见 U 步之七末段
 - ℹ️ **Mac VM：现在是硬需求，别删**（本轮校准）。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm`、官方 trustcache 资格化，
   但**可写 Data 种子只能由 macOS 的 `hdiutil`/`diskutil` 造**（`newfs_apfs` 才会写 checkpoint 描述符区），
-  上游自己也只在 `hvf`（macOS）上资格化过这条路。**第一趟只要空卷**（`--from-var` 不给）——
-  空卷也能过「驱动认容器 + rw 挂 `/private/var`」这一格；要初始树再把本机解密的 OS `.cdr` 挂进 VM 拷 `private/var`
+  上游自己也只在 `hvf`（macOS）上资格化过这条路。**两趟都已实测**：空卷过「驱动认容器 + rw 挂 `/private/var`」，
+  带 `/private/var` 骨架的 64 MiB 卷把 `tzinit` 那道闸一起带走（`49-data-mac-var`，见上）。
 
 
 ## 硬约束（用户原话级，不要重新征询）
