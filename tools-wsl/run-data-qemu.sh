@@ -65,7 +65,11 @@ DATA_SYMBOLS=(native_owner_data_status:4 native_owner_data_stage:4 native_owner_
               native_owner_cache_native_union:4 initproc_spawned:4 umi_exec_trace_seen:8
               umi_exec_trace_observation:160 boot_progress_display_owned:4
               native_data_persist_state:4 native_data_persist_pages:8
-              gDramSize:8 gDramBase:8)
+              gDramSize:8 gDramBase:8
+              vm_page_free_count:4 vm_page_free_min:4 vm_page_free_target:4
+              vm_page_pageable_internal_count:4 vm_page_speculative_count:4
+              vm_page_wire_count:4 memorystatus_vm_pressure_level:4
+              memorystatus_compressor_space_shortage:4)
 HAS_EXIT=0
 if echo "$DUMP" | grep -q ' _exit_records$'; then HAS_EXIT=1; else echo "  注意：本档没有 _exit_records（screen 诊断没链进来？）"; fi
 # UMI_GUEST_RAM_MIB：一次同时抬 QEMU 的 -m 与 ADT 的 /chosen/dram-size（两件必须同动，
