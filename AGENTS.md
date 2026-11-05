@@ -126,10 +126,20 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - `tools-wsl/run-kernel-systemos.sh` — `build_umi_xnu.py --stage kernel --profile qemu --crypto-bootstrap prelinked
   --native-ufs --owner-root trust --systemos`；`--systemos` 要求 owner-root=trust，并打开
   `XNU_OWNER_CACHE_MOUNT/OWNER_CACHE_STARTUP/OWNER_BOOT_MANIFEST/OWNER_UNION_SYSTEMOS/NATIVE_CS_HASH_CACHE`
+- `tools-wsl/h-wait-systemos-chain.sh` — 全链一条命令：等 kernel 构建结束 → 判 SystemOS 观测符号在位 →
+  `run-umi-prelink.sh qemu-systemos-union`（`build_umi_prelink.py` **没有** systemos 开关，只 `--profile/--storage`）→
+  QEMU 取证 → 官方 analyze；日志在 `out/probes/systemos-chain.log`
+- `tools-wsl/run-systemos-qemu.sh [run名]` — 三旗标取证：`--root-volume --systemos-volume --trust-cache`，
+  再把官方 analyze 要读的观测符号一个不缺地 `--read-symbol` 挂上（`_native_owner_cache_*` / `_umi_exec_trace_*` /
+  `_cs_native4k_*` / `_initproc_spawned`），`--trace _trust_cache_runtime_init --trace _load_init_program`
+- `tools-wsl/evaluate-systemos-evidence.py RUN` — 本地按官方 analyze 的断言集逐条拆 PASS/FAIL/BLOCKED
+  （断言不增减）。39 档实测 **15/15 PASS，1 条 BLOCKED**
 - 判读件是官方的 `tools/analyze_umi_systemos_qemu.py`（不是 check 件，它拒绝覆盖已有 analysis.json），
   它断言 `_native_owner_cache_status=0`/`authorized=1`/`native_union=1`、`_initproc_spawned=1`，
   并把结果分成 `launchd_main_and_services_observed_within_bounded_run` 等四档；
-  `ios_ui_observed` 与 `phone_runtime_equivalence_proved` 在上游自己手里恒为 false
+  `ios_ui_observed` 与 `phone_runtime_equivalence_proved` 在上游自己手里恒为 false。
+  **它在第 59 行无条件 `read("_exit_records", 2382)`，本机内核没链这个符号 → `KeyError` 崩**；
+  崩点本身证明 25–58 行的断言全过，剩下的用本地 evaluate 件补
 - `run_umi_qemu.py --systemos-volume` 必须与 `--root-volume` 同给（它自己 error 出来），并会 SHA 校验第二个窗，
   两块只读盘分别落到 `virtio_block_input` / `virtio_extra_block_input`
 - **原版卷实测（u151/u152/u154，纯 Linux 只读）**：OS 卷 `DawnUpdate21H461…OS` 里
@@ -143,6 +153,20 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - pyfsapfs 的 `file_entry` 面**没有** `metadata`/`get_number_of_sub_entries`；正确用法是
   `vol.get_file_entry_by_path("/…")`（路径不存在返回 `None`，不是异常）+
   `entry.get_number_of_sub_file_entries()` / `get_sub_file_entry(i)` / `entry.size` / `entry.file_mode`
+- **39-systemos-union 实测（2026-11-05，`out/screens/39-systemos-union.png`）**：cache 挂载与授权这半道闸过了——
+  `(status, authorized, native_union) == (0,1,1)`、两窗 sha 命中官方钉值（OS `e5634d04…` / SystemOS `b4908cde…`）
+  且区间不重叠、两块 virtio 盘只读且真挂上、`owner_root` 前六字段 `(2,1,80,1,1,1)`、`observation[0]==1`、
+  `dyld_flags=8`、native 4K 哈希面 `full_blocks=30892 / page_checks=36 / ready_blobs=9`。
+  屏上 `(no such file, no dyld cache)` **消失**，代之以 `EL0 IN/OUT svc=…` 流水（28/26/372/294/10/14/20/427…）；
+  这批 EL0 是真件不是假根——本档 `mockfs_initrd=None`、内核里 mockfs 符号 0 个，
+  行本身由 `osfmk/arm64/sleh.c:1957` 的内核侧 trap 观测件打印（对任何 EL0 进程都生效）
+- **新的停点＝上游自己的终点**：`pc=0xfffffff00bffe6ac=_panic+0x0`，`x0` 指 `"AMFI: No PMGR?\n"`，
+  调用栈是 `_thread_call_invoke+0x78` ← `_thread_call_thread+0x218` ← `_Call_continuation+0x44`（异步 thread call，
+  `bounded_timeout_interrupted=False` 不是超时假象）；trace 两条 `_trust_cache_runtime_init`(7.841s) /
+  `_load_init_program`(9.299s)，phase 位 `[1,3,4,6,10,11,16,17,32,33]`（16/17 与 32/33 = 两次 init_exec begin/return），
+  但 `_initproc_spawned=0` → `launchd_main_observed=false`。**这正上游 check 件原话判死的形态**
+  （`check-owner-dyld-startup-checkpoints.py:112` "full cache mapping, launchd main and hardware remain open"），
+  所以下一步不是补作业，是要超出上游
 
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
@@ -159,7 +183,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 `out/fixtures/`（容器件）、`out/images/`（真机档镜像）、`out/scratch/`。
 临时实验放 `out/scratch/`，别往 `tools-wsl/` 根上再堆一次性脚本。
 
-## 进度到哪了（2026-11-04）
+## 进度到哪了（2026-11-05）
 
 - ✅ Linux host 工具链、host 校验、内核基线（QEMU 验过）
 - ✅ umi UEFI 菜单包 + 真机 `fastboot boot` 出菜单（`MuPatches` 必须 CRLF）
@@ -189,8 +213,16 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - ✅ **原版卷取证结案（u151/u152/u154）**：OS 卷里 `dyld`/`launchd` 是实体文件，但 `libSystem.B.dylib`
   与 `com.apple.dyld` 目录**都不存在**；shared cache 明文躺在 SystemOS cryptex 窗里（`dyld_v1` 65 次命中）。
   所以「进系统」的正解是上游的 `--systemos` 档，不是往假根里塞文件
-- 🔴 **当前闸**：SystemOS 档内核构建中（`run-kernel-systemos.sh`）。过闸判据 = 屏上不再出现
-  `(no such file, no dyld cache)`，且 `analyze_umi_systemos_qemu.py` 给出 `launchd_main_observed=true`
+- ✅ **U 步之五（SystemOS union / dyld shared cache）**：Linux 侧 `--systemos` 档内核 → `qemu-systemos-union.macho`
+  （sha `5fbddad6…`，17 件 / virtual_span 140,681,216 / owned_memory 335,544,320）→ 三窗只读盘 QEMU 取证。
+  **官方 analyze 件能评的断言 15/15 全过**（`_exit_records` 那条 BLOCKED，见下），屏上
+  `(no such file, no dyld cache)` 消失，`(status,authorized,native_union)=(0,1,1)`、cache 授权与 native 4K 哈希面全绿
+- 🔴 **当前闸（两个独立缺口）**：
+  ① `launchd_main_observed=false`——两次 init-exec 都返回但 `_initproc_spawned=0`，停点是异步 AMFI
+  `"AMFI: No PMGR?"` panic；**上游自己也停在这里**（原话判词见 U 步之五末条），要归因的是 launchd 的 exec 为何没落成 initproc；
+  ② 官方一站式 `analysis.json` 跑不全——`analyze_umi_systemos_qemu.py:59` 无条件读 `_exit_records`，
+  该符号只在 `--screen-diagnostics`（它又硬要求 `--gic-diagnostics`）档里链进内核，本机八档内核全都 `exit_records=0`。
+  这同一件也挡住了 U 步之三留的 `out/umi/screen-qemu-baseline.json`：**补这一档同时闭合两条腿**
 - ℹ️ Mac VM：本轮不用、也别删。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm` 与官方 trustcache 资格化；
   唯一残留缺口是「往 APFS 卷写文件」（`apfsprogs` 无写文件工具，`apfs-dkms` 已装未编，本树 `bsd/miscfs/` 无 APFS 驱动）
 
@@ -237,5 +269,14 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   `--read-symbol NAME:LEN` 的 LEN 直接写十六进制字节数
 - `--crypto-bootstrap prelinked` 的 kernel 步把产物**直接**写成 `kernel/qemu-prelink-source-kernel.macho`
   （不是 `source-kernel.macho`，构建自己的 status JSON 里 `kernel` 字段就是它），所以每编一档覆盖一次；
-  `run-umi-prelink.sh` 写死吃它 → 两档 prelink 产物 sha 不同（audit `58f2840b…` / trust `b11d3148…`），
-  **编完一档立刻 prelink + 取证**，别拿过期输入件去跑另一档
+  `run-umi-prelink.sh` 写死吃它 → 各档 prelink 产物 sha 不同（audit `58f2840b…` / trust `b11d3148…` /
+  systemos `5fbddad6…`），**编完一档立刻 prelink + 取证**，别拿过期输入件去跑另一档
+- **判内核符号在位只能用 cctools 那份 `nm`（`$TC/CommandLineTools/usr/bin/nm`）**：本机
+  `/opt/unixnu-linux/CommandLineTools/usr/bin/llvm-nm` **不存在**，配 `2>/dev/null` 时 `command not found`
+  被吞掉、`grep -c` 恒 0，会把「全都在」静默判成「全都缺」（`h-wait-systemos-chain.sh` 被这坑停手过一次）。
+  现在该件先 `[ -x "$NM" ]` 硬闸，再打印 `nm 符号行数`，空 dump 不可能冒充结果
+- **`_exit_records` 不是内核符号，是 `devices/umi/package/boot-progress/BootProgress.c` 里的 `static`**
+  （`static struct bp_exits exit_records,exit_snapshot;`），只有 `--screen-diagnostics` 档才链进内核，
+  而 `--screen-diagnostics` 又硬要求 `--gic-diagnostics`。所以 `--read-symbol _exit_records:…` 会让
+  `run_umi_qemu.py` 在建 run 目录前就 `missing exact kernel symbol` 全档失败；官方
+  `analyze_umi_systemos_qemu.py:59` 无条件读它，本机八档内核 `exit_records=0` → 该件必然 `KeyError`
