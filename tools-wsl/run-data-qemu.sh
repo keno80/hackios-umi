@@ -27,7 +27,7 @@ WS=/home/unixnu/code/umi-work-pin
 TC=${UNIXNU_TOOLCHAIN:-/opt/unixnu-linux}
 export PATH="$TC/CommandLineTools/usr/bin:$TC/bin:/usr/local/bin:/usr/bin:/bin"
 export LC_ALL=C XNU_TOOLCHAIN_BIN="$TC/CommandLineTools/usr/bin $TC/XcodeDefault.xctoolchain/usr/bin"
-K=$WS/out/umi-xnu/umi/kernel/qemu-systemos-data.macho
+K=$WS/out/umi-xnu/umi/kernel/${KNAME:-qemu-systemos-data}.macho
 B=$WS/out/umi/trustcache/original-static-system.bundle
 LOG=/mnt/e/Code/HackIos/out/probes/data-qemu-$NAME.log
 exec > >(tee "$LOG") 2>&1
@@ -100,7 +100,7 @@ echo
 echo "== 1. 跑 $NAME（BYPASS=${BYPASS:-0} STOP=${STOP:-_panic} STOP_ADDR=${STOP_ADDR:-（未用）} SKIP_HITS=${SKIP_HITS:-0} REGISTRY=${REGISTRY:-0}）=="
 cd "$WS" || exit 1
 tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/run-umi-qemu.sh > /tmp/run-umi-qemu.sh
-KERNEL=out/umi-xnu/umi/kernel/qemu-systemos-data.macho bash /tmp/run-umi-qemu.sh "$NAME" "${ARGS[@]}"
+KERNEL=out/umi-xnu/umi/kernel/${KNAME:-qemu-systemos-data}.macho bash /tmp/run-umi-qemu.sh "$NAME" "${ARGS[@]}"
 echo "run_umi_qemu exit=$?"
 
 echo

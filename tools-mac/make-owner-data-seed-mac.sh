@@ -87,8 +87,10 @@ echo "== 6. 自检：按上游 check 件的两条硬判据 =="
 BYTES=$(stat -f %z "$IMAGE")
 MAGIC=$(dd if="$IMAGE" bs=1 skip=32 count=4 2>/dev/null)
 SHA=$(shasum -a 256 "$IMAGE" | cut -d' ' -f1)
-echo "  大小=$BYTES（上游钉 $((32*1024*1024))）  块 0 偏移 0x20 魔数=$MAGIC（要 NXSB）"
-[ "$BYTES" = "$((32*1024*1024))" ] || { echo "停手：大小不对，Linux 侧 pack 后 kernel 契约也会不对"; exit 1; }
+WANT=$(( ${SIZE%m} * 1024 * 1024 ))
+case "$SIZE" in *g|*G) WANT=$(( ${SIZE%g} * 1024 * 1024 * 1024 )) ;; esac
+echo "  大小=$BYTES（要 $WANT）  块 0 偏移 0x20 魔数=$MAGIC（要 NXSB）"
+[ "$BYTES" = "$WANT" ] || { echo "停手：大小不对，Linux 侧 pack 后 kernel 契约也会不对"; exit 1; }
 [ "$MAGIC" = "NXSB" ] || { echo "停手：这不是 raw APFS 容器（可能 -layout 没生效）"; exit 1; }
 printf '{\n  "volume_uuid": "%s",\n  "bytes": %s,\n  "sha256": "%s",\n  "seed": "hdiutil -fs APFS formatted; %s",\n  "guest_mutable": true\n}\n' \
   "$UUID" "$BYTES" "$SHA" "$([ -n "$FROM" ] && echo "var tree copied" || echo "empty volume")" > "$OUT/seed.json"
