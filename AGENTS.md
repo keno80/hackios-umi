@@ -34,6 +34,8 @@ wsl.exe -d Ubuntu-24.04 bash -lc "tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/reb
 它做四件事：按白名单重装命令 → 重建 bind → 起 8765 面板 → 打印内核 sha 与在跑的任务。
 白名单在 `tools-wsl/sync-helpers.sh` 里，是唯一出处：`unixnu-env` `ensure-dev-bind` `progress`
 `dashboard` `rawlog` `run-umi-qemu` `ab-status`（对照实测引用表 `out/probes/entry-pathcmds.txt`）。
+同一件还会给 `/opt/homebrew/opt/llvm/bin/llvm-objdump` 装个指向 `/usr/bin/llvm-objdump` 的 shim——
+上游 `build-boot-progress.py` 按 Mac 的 Homebrew 位置直接点名它，没有这层 boot-progress 档起不来。
 `/usr/local/bin/ensure-dev-bind` 如果是旧版会漏「非空目录」判定，把重启留下的空目录误判成需要停手，
 构建 kick 会静默失败——所以白名单里那两个命令必须每次用仓库版覆盖。
 加 `--prune` 才会清掉 `/usr/local/bin` 里顶层已无同名脚本的陈旧快照（现有 60+ 项历史残留）。
@@ -133,15 +135,27 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   再把官方 analyze 要读的观测符号一个不缺地 `--read-symbol` 挂上（`_native_owner_cache_*` / `_umi_exec_trace_*` /
   `_cs_native4k_*` / `_initproc_spawned`），`--trace _trust_cache_runtime_init --trace _load_init_program`
 - `tools-wsl/evaluate-systemos-evidence.py RUN` — 本地按官方 analyze 的断言集逐条拆 PASS/FAIL/BLOCKED
-  （断言不增减）。39 档实测 **15/15 PASS，1 条 BLOCKED**
+  （断言不增减）。39 档 **15/15 PASS + 1 条 BLOCKED**；41-systemos-screen 档 **16/16 全过、0 条阻塞**
 - 判读件是官方的 `tools/analyze_umi_systemos_qemu.py`（不是 check 件，它拒绝覆盖已有 analysis.json），
   它断言 `_native_owner_cache_status=0`/`authorized=1`/`native_union=1`、`_initproc_spawned=1`，
   并把结果分成 `launchd_main_and_services_observed_within_bounded_run` 等四档；
   `ios_ui_observed` 与 `phone_runtime_equivalence_proved` 在上游自己手里恒为 false。
-  **它在第 59 行无条件 `read("_exit_records", 2382)`，本机内核没链这个符号 → `KeyError` 崩**；
-  崩点本身证明 25–58 行的断言全过，剩下的用本地 evaluate 件补
+  它第 59 行无条件 `read("_exit_records", 2382)`，要两件事才跑得全：内核链进 boot-progress（下面 screen 档）
+  + 观测件把这条大读拆成分段包（下面分段读件）。两件都落地后本机实测 `status=startup_not_yet_resolved`
 - `run_umi_qemu.py --systemos-volume` 必须与 `--root-volume` 同给（它自己 error 出来），并会 SHA 校验第二个窗，
   两块只读盘分别落到 `virtio_block_input` / `virtio_extra_block_input`
+- `tools-wsl/run-kernel-systemos-screen.sh` — 在 `--systemos` 之上再加 `--gic-diagnostics --screen-diagnostics`
+  （后者硬要求前者，`build_umi_xnu.py:70`；ArmCpu 会因此重编，`tree/build/armcpu/build-report.json` 里
+  `"gic_diagnostics": "qemu"` 是它的活体证据）。这两面把 boot-progress 套件链进内核，`_exit_records`
+  （`struct bp_exits` = total/failed/crashes + recent[4]×120 + failures[3]×120 + crash[3]×400 + reason[330]
+  = 2382 B）才作为符号存在。除上面两条坑（provider 清单、objdump shim）外，它 kick 前会硬闸
+  三件上游 systemos 补丁 + `zzzzzzzzzzzzz-umi-systemos-trace.patch` + `package/boot-progress/{BootProgress.c,BootProgressCore.h}`
+- `tools-wsl/make-run-umi-qemu-chunked-read.py` — 给**真正被执行的那份** `$WS/tools/run_umi_qemu.py` 追加一条
+  观测件替换：把 `--read-memory` 的单发 `m` 包改成上游自己在 saved-register 采集里就用的
+  「页边界 + 每次 ≤512 字节」分段循环（`gdb-stop.py:1389-1396`），拼回同一个键。上游观测件本体一字不改
+  （`run_umi_qemu.py` 本来就一直在给它打窗口补丁），判读件也不改；短读产出的字节与改动前逐字节相同，
+  读不上的页记到新的 `memory_read_errors` 而不是把 `E22` 当数据存。幂等 + `compile()` 自检，
+  `run-systemos-qemu.sh` 每次挂 `_exit_records` 前自己打（`--restore` 可撤）
 - **原版卷实测（u151/u152/u154，纯 Linux 只读）**：OS 卷 `DawnUpdate21H461…OS` 里
   `/usr/lib/dyld`(937,056, `cf fa ed fe` filetype 7) 与 `/sbin/launchd`(561,856, filetype 2) 是实体文件，
   但 **`/usr/lib/libSystem.B.dylib` 不存在**（只有 `libSystem.B_asan.dylib`），
@@ -167,6 +181,17 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   但 `_initproc_spawned=0` → `launchd_main_observed=false`。**这正上游 check 件原话判死的形态**
   （`check-owner-dyld-startup-checkpoints.py:112` "full cache mapping, launchd main and hardware remain open"），
   所以下一步不是补作业，是要超出上游
+- **40/41-systemos-screen 实测（2026-11-05，`out/screens/41-systemos-screen.png`）**：screen 档源内核
+  `d383e25b…`（`nm` 52,225 行，`_exit_records` 在位）→ prelink `qemu-systemos-screen.macho` sha `26d2019a…`
+  （17 件）→ 三窗只读盘 QEMU 停 `_panic`。**官方 `analyze_umi_systemos_qemu.py` 本机首次跑全**（exit=0，
+  产 `out/umi-qemu/41-systemos-screen/analysis.json`），本地判读件 16/16。停点仍是
+  `pc=0xfffffff00c00867c=_panic`、`x0="AMFI: No PMGR?\n"`；新拿到的 `_exit_records` 面**全零**
+  （`total=failed=crashes=0`，recent/failed/crash 三段全空串）→ `launchd_main_observed=false` 不是
+  「launchd 起来又死了」，是压根没进 main。屏上 boot-progress 的 `UMI .. <stage>` 序列
+  （`PE_init_iokit`→`early_boot`→`mac_policy_initmach`→`vmguard_policy_init`→`dtrace_early_init`→
+  `trust_cache_init`→`OSKextRemoveKextBootstrap`→`machine_lockdown`→`kernel_do_post - done`→`PE_lockdown_iokit`）
+  把 panic 钉在 iokit lockdown 之后；`native4k` 面同时跳到 `full_blocks=36121 / page_checks=44 / ready_blobs=11`
+  （39 档是 30892/36/9），说明签名哈希缓存在 panic 前还在真干活
 
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
@@ -217,12 +242,18 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   （sha `5fbddad6…`，17 件 / virtual_span 140,681,216 / owned_memory 335,544,320）→ 三窗只读盘 QEMU 取证。
   **官方 analyze 件能评的断言 15/15 全过**（`_exit_records` 那条 BLOCKED，见下），屏上
   `(no such file, no dyld cache)` 消失，`(status,authorized,native_union)=(0,1,1)`、cache 授权与 native 4K 哈希面全绿
-- 🔴 **当前闸（两个独立缺口）**：
-  ① `launchd_main_observed=false`——两次 init-exec 都返回但 `_initproc_spawned=0`，停点是异步 AMFI
-  `"AMFI: No PMGR?"` panic；**上游自己也停在这里**（原话判词见 U 步之五末条），要归因的是 launchd 的 exec 为何没落成 initproc；
-  ② 官方一站式 `analysis.json` 跑不全——`analyze_umi_systemos_qemu.py:59` 无条件读 `_exit_records`，
-  该符号只在 `--screen-diagnostics`（它又硬要求 `--gic-diagnostics`）档里链进内核，本机八档内核全都 `exit_records=0`。
-  这同一件也挡住了 U 步之三留的 `out/umi/screen-qemu-baseline.json`：**补这一档同时闭合两条腿**
+- ✅ **U 步之五之三（screen-diagnostics 档结案，2026-11-05）**：`--gic-diagnostics --screen-diagnostics` 把
+  boot-progress 链进内核（`_exit_records` 在位）+ `make-run-umi-qemu-chunked-read.py` 把那条 2382 字节的
+  `m` 包拆成分段读 → **官方一站式 `analysis.json` 本机首次跑全**，本地判读件 16/16、0 条阻塞。
+  `status=startup_not_yet_resolved`，`ios_ui_observed`/`phone_runtime_equivalence_proved` 恒 false（与上游一致）
+- 🔴 **当前闸（只剩一条）**：`launchd_main_observed=false`——两次 init-exec 都返回但 `_initproc_spawned=0`，
+  且新拿到的 `_exit_records` **全零**，说明没有任何进程真退出过，launchd 压根没进 main；停点是异步 AMFI
+  `"AMFI: No PMGR?"` panic。**上游自己也停在这里**（判词见 U 步之五末条）。候选解是 `--pmgr` 档（它同时是
+  U 步之三留的 `out/umi/screen-qemu-baseline.json` 的前置，`check_umi_screen_qemu.py:37` 要
+  `screen_diagnostics && gic_diagnostics && pmgr` 三者同开），但本机 donor
+  `kernelcache.decompressed`（`f18b4df8…`）里 `nm` 6056 个符号中找不到 `build-umi-platform-power.py`
+  钉的那三个 VA（`0xfffffff005ce26d8`/`0xfffffff004a22568`/`0xfffffff004a230ec`）也没有 ApplePMGR 名字，
+  而且它把 `kernel/kernel.macho` 当**审计输入**（不是清单），手抄的 provider 清单件不能直接复用——这条腿要单独归因
 - ℹ️ Mac VM：本轮不用、也别删。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm` 与官方 trustcache 资格化；
   唯一残留缺口是「往 APFS 卷写文件」（`apfsprogs` 无写文件工具，`apfs-dkms` 已装未编，本树 `bsd/miscfs/` 无 APFS 驱动）
 
@@ -279,4 +310,18 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   （`static struct bp_exits exit_records,exit_snapshot;`），只有 `--screen-diagnostics` 档才链进内核，
   而 `--screen-diagnostics` 又硬要求 `--gic-diagnostics`。所以 `--read-symbol _exit_records:…` 会让
   `run_umi_qemu.py` 在建 run 目录前就 `missing exact kernel symbol` 全档失败；官方
-  `analyze_umi_systemos_qemu.py:59` 无条件读它，本机八档内核 `exit_records=0` → 该件必然 `KeyError`
+  `analyze_umi_systemos_qemu.py:59` 无条件读它 2382 字节
+- **本机 QEMU 8.2.2 gdbstub 单发 `m` 包上限 ≈ (4096-16)/2 = 2040 字节，超了直接回 `E22`**；上游
+  `gdb-stop.py` 的 `--read-memory` 把应答**原样存进 `report['memory']`**，于是那条 2382 字节的读存的是字符串
+  `"E22"`，官方 analyze 件在 `bytes.fromhex` 处炸 `non-hexadecimal number found … position 3`（不是 KeyError，
+  也不是内核问题）。160 B / 0x90 / 0xa0 这些短读全都正常 → 用
+  `make-run-umi-qemu-chunked-read.py` 拆成上游自己的「页边界 + ≤512 字节」分段读
+- **boot-progress 的 provider 清单要 `out/umi-xnu/umi/kernel/kernel.macho` 先存在**
+  （`scripts/build-boot-progress.py:73`，只拿它跑 `nm -g -U -j` 取「已定义全局」），而 umi 管线从不产这个文件名
+  （`prefix = ("qemu-" if profile=="qemu") + ("prelink-" if prelink_input else "") + "source-kernel.macho"`）。
+  `run-kernel-systemos-screen.sh` 会从 `qemu-prelink-source-kernel.macho` 复制一份并写
+  `kernel.macho.provider-inventory.json` 说明来路——**别拿它当「资格化内核」**：`--pmgr` 与 storage providers
+  把同一件当**审计输入**，手抄件在那儿会真失败
+- **`build-boot-progress.py:53/142` 直接点名 `/opt/homebrew/opt/llvm/bin/llvm-objdump`**（没有 env 覆盖口），
+  本机根本没有 `/opt` 那棵树 → `sync-helpers.sh` 里给它装了个指向 `/usr/bin/llvm-objdump`（LLVM 18.1.3）的
+  symlink shim。装之前实测过那四条大小写敏感的指令断言本机 objdump 全认（u186）
