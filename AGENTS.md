@@ -36,6 +36,11 @@ wsl.exe -d Ubuntu-24.04 bash -lc "tr -d '\r' < /mnt/e/Code/HackIos/tools-wsl/reb
 `dashboard` `rawlog` `run-umi-qemu` `ab-status`（对照实测引用表 `out/probes/entry-pathcmds.txt`）。
 同一件还会给 `/opt/homebrew/opt/llvm/bin/llvm-objdump` 装个指向 `/usr/bin/llvm-objdump` 的 shim——
 上游 `build-boot-progress.py` 按 Mac 的 Homebrew 位置直接点名它，没有这层 boot-progress 档起不来。
+还给 `/usr/local/bin/llvm-objcopy` 装 Mach-O shim（真件在 `/usr/bin`）：Ubuntu LLVM 18.1.3 那份对 Mach-O
+不实现 `--globalize-symbol`（只对 ELF 实现），而上游 `build-umi-platform-power.py:131` 与
+`build_umi_data_display.py:114/:118` 都点名它——shim 只补 Mach-O 的 globalize 那一步
+（`tools-wsl/macho-globalize.py` 直接改 nlist 的 `N_EXT`/`N_PEXT` 位），ELF 与其余调用原样直通真件。
+`--prune` 会认它是白名单装件、不当陈旧快照清掉。
 `/usr/local/bin/ensure-dev-bind` 如果是旧版会漏「非空目录」判定，把重启留下的空目录误判成需要停手，
 构建 kick 会静默失败——所以白名单里那两个命令必须每次用仓库版覆盖。
 加 `--prune` 才会清掉 `/usr/local/bin` 里顶层已无同名脚本的陈旧快照（现有 60+ 项历史残留）。
@@ -193,6 +198,75 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   把 panic 钉在 iokit lockdown 之后；`native4k` 面同时跳到 `full_blocks=36121 / page_checks=44 / ready_blobs=11`
   （39 档是 30892/36/9），说明签名哈希缓存在 panic 前还在真干活
 
+### U 步之六：`--pmgr` 档——把 `AMFI: No PMGR?` 这道闸归因掉
+- `tools-wsl/run-kernel-systemos-pmgr.sh` — `build_umi_xnu.py --stage kernel --profile qemu --crypto-bootstrap prelinked
+  --native-ufs --owner-root trust --systemos --gic-diagnostics --screen-diagnostics --pmgr -j 5`。
+  前置自检里必须验 `kits/umi/UmiPlatformPower.cpp` + `scripts/build-umi-platform-power.py` +
+  `zzzz-umi-pmgr.patch` + boot-progress 套件 + 两枚 objcopy/objdump shim 全在位，再对 prelink 输入档
+  跑一次 `tree/scripts/audit-umi-pmgr-contract.py`（**`devices/umi/scripts` 那份不能用**：它的
+  `ROOT = parents[1]` 指到 `devices/umi`，`from native_prelink import …` 直接 `ModuleNotFoundError`；
+  上游仪表自己点的就是 `tree/scripts` 那份，且它要求 `--output`）
+- `tools-wsl/run-pmgr-qemu.sh <off|lifecycle|publish|refusal|root|amfi|deep> [run名]` — 一份内核跑官方
+  六个 mode：`off` 不给旗标停 `_panic`；`lifecycle`=`umi-pmgr=1` 停 `_umi_pmgr_checkpoint`；
+  `publish`=`umi-pmgr=2` 同停点；`refusal`=`umi-pmgr=3` 停 `_panic`；`root`=`umi-pmgr=2` 停
+  `_IOFindBSDRoot`；`amfi`=`umi-pmgr=2` 停 `--stop-address 0xfffffff004aaeb54`（契约审计钉死的
+  AMFI 读/OR/写址）。判读就是官方 `tools/check_umi_pmgr_observation.py --mode <同名>`，
+  它把 stop 符号按 mode 写死，所以停点不能自挑
+- **读址集与 SystemOS 档对齐**（官方 `analyze_umi_systemos_qemu.py` 无条件读的符号一个不缺：
+  `_native_owner_cache_dyld_flags:4`、`_cs_native4k_{full_blocks,page_checks,ready_blobs}:8`、
+  `_exit_records:0x94e`），所以同一份取证既能喂 pmgr 官方 check 又能喂 SystemOS 官方 analyze
+- **实测（2026-11-05，内核 `qemu-systemos-pmgr.macho` sha `284fa323…`，17 件 prelink）**：
+  官方 `check_umi_pmgr_observation.py` **六个 mode 全 PASS**（`out/screens/43-pmgr-*.png`）。硬证据：
+  仪表 `_umi_pmgr_run` 的调用方 lr = `__ZN16IOPlatformExpert5startEP9IOService+0x1bc`（原版 XNU 平台专家
+  真的在 start 末尾调到了它）；publish 面 `stage=5`、`parent_size==own_size==0x4b8a8`、
+  `provider==bound_provider≠0`、`nub≠0`、`read_before==read_after==0xffffffff`、`attached=1`、
+  `registered=2`、`own/nub` 实例计数各 `0→1`；lifecycle 面 `stage=4/attached=0/registered=0`；
+  refusal 面 `stage=0x1aa`(=0x100+170)、`status=0xe00002c7`（kIOReturnUnsupported 真走到了 panic）；
+  **amfi 面 `pc` 恰等于契约址、`x20==nub`、`x21==0xffffffff`**——原版 AMFI 真的 retain 了我们发布的 nub
+- **`AMFI: No PMGR?` 这道闸被打掉**：`umi-pmgr=2` 的深跑（`42/43-pmgr-deep`）里 `_panic` 断言一次没命中
+  （`skipped_target_hits=0`），`_load_init_program` 8.846s 命中，**`_initproc_spawned=1`**
+  → 官方 analyze 的 `launchd_main_observed` 第一次为真；屏上换成
+  `UMI PANIC tzinit[171 exited` + `EL0 breakpoint record unavailable -- no exit reason available -- (signal 0, exit status 30)`，
+  `UMI marks=3197`。停点是 `_halt_all_cpus+0x34`，栈里 `_unix_syscall+0x2b0` ← `_exit+0x1c` ←
+  `_exit_with_reason+0x1b0` ← `_proc_exit+0x0` → `_panic_trap_to_debugger+0x38c`——
+- **新闸从「launchd 起不来」变成「被 launchd 派生的服务（pid 171 tzinit）退出，内核走了 Debugger 路径」**
+- `tools-wsl/run-screen-baseline-qemu.sh [run名]` — U 步之六之四：官方最后一件 baseline
+  `tools/check_umi_screen_qemu.py --run … --kernel qemu-systemos-pmgr.macho`（它第 37 行硬要求
+  `source-build.json` 里 `screen_diagnostics && gic_diagnostics && pmgr` 三者同开，这就是 U 步之三
+  一直产不出 `out/umi/screen-qemu-baseline.json` 的原因）。停点 `_umi_boot_progress_checkpoint_eight`
+  不能自挑（官方第 34 行钉 pc），且第 31 行要求**不是超时停**
+- **boot-progress 整套仪表由运行时 boot-arg `boot-progress=1|2` 闸住（u218/u219/u221 实测，本轮根因）**：
+  链进内核的是生成件 `tree/build/boot-progress/BootProgress.providers.c:716` 的 `boot_progress_init()`，
+  它第一行就是 `if (!PE_parse_boot_argn("boot-progress",&opt,..) || (opt!=1 && opt!=2)) return;`。
+  没给这个 boot-arg 时：`_boot_progress_frequency`/`_umi_boot_progress_anchor`/`_umi_boot_progress_samples`/
+  `_boot_progress_observation` **全零**、`checkpoint_eight` 永不触发，取证只能吃到 900s 超时，
+  而官方 screen 件第 31 行 `assert not bounded_timeout_interrupted` 必然失败。上游自己的跑法把
+  `boot-progress=2` 钉在 boot args 里（`tools/run_umi_data_display_qemu.py:28`），
+  `tools/make_umi_payload.py:58/59` 更是直接判死「Qualified screen diagnostic requires continuous boot-progress=2」
+- **`boot_progress.h` 的 `#else` 分支是障眼法**：它把 `boot_progress_stage(s)` 映射到 `umi_screen_text(s)`，
+  所以屏上有 `UMI .. <stage>` 序列**不等于**仪表在跑。判据只有两个：编译记录里 `-DXNU_BOOT_PROGRESS=1`
+  （实测 `sleh.o.json`/`machine_routines.o.json` 都带，见 u220）+ 运行时 `boot-progress=` boot-arg
+- **实测（2026-11-05，`45-screen-baseline`，屏照 `out/screens/45-screen-baseline.png`）**：补上 `boot-progress=2`
+  后**官方 `check_umi_screen_qemu.py` 本机首次 PASS**，产 `out/umi/screen-qemu-baseline.json`
+  （`status=passed_real_timed_framebuffer_diagnostics`、`counter_frequency=62500000`、
+  `elapsed_between_passes_3_and_8=5.0218`、`actual_qemu_scanout_captured=true`、
+  `source_archive_index_sha256=03fd28fc…`；`phone_panel_verified`/`root_mounted`/`userspace_qualified`
+  是这件自己的口径，恒 false，不是我们的闸）。停点 `pc=0xfffffff00bfff528=_umi_boot_progress_checkpoint_eight`
+  且 `bounded_timeout_interrupted=false`（真停不是超时停）。仪表硬证据：`samples` 第一趟
+  `(1,5,2,3)`、末趟 `(1,6,7,8)`（phase/pass/count 都对得上官方断言）、两趟同一 frame
+  `0xfffffff05f400000` / `800x600` / `row 3200`、`[2,1,providers]=2,1,7`（7 = 1 native_ufs | 2 | 4，
+  后两位由 `owner_root != off` 打开，官方件就是这么算的）；
+  `anchor=(0x7c7a0000, 0xfffffff13e0f6000, 0x1d4c00)`（物理基址 / 内核虚拟基址 / 字节数，
+  `0x1d4c00` = 800×600×4 正好对上）；
+  屏面换成完整诊断页：`UMiXNU boot diagnostics - live XNU - native 4K - no automatic reboot` +
+  `time=7s idle=0s IRQ=3002 monitor=8 lost=0 root=1 process=1 free=278` +
+  `OFFLINE_VIRTIO requests=2246 verified=2246 failures=0` + `pid=1 launchd EL0 OUT svc=…` 流水 +
+  `SpringBoard: absent from this process pass`
+- **这一档顺手把 `_exit_records` 激活了**：同一份取证里 `total=2`、两行
+  `p1 init status=0 sig=0 exit=0 ns=0 sub=0`，屏上 `Proc ss exits: total=2 no zero-status-or-reason=0`。
+  上一轮「全零」是因为仪表根本没启动，不是没人退出——所以 `tzinit` 那条退出原因现在**有通路可拿了**：
+  本档停在 monitor 第 8 圈（≈8 秒）而 tzinit 在十几秒后才退，把停点往后挪（或加深跑）就能读到 reason 面
+
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
 - `tools-wsl/collect-phone.sh` / `analyse-phone-capture.py` — 采集与判读
@@ -246,14 +320,35 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   boot-progress 链进内核（`_exit_records` 在位）+ `make-run-umi-qemu-chunked-read.py` 把那条 2382 字节的
   `m` 包拆成分段读 → **官方一站式 `analysis.json` 本机首次跑全**，本地判读件 16/16、0 条阻塞。
   `status=startup_not_yet_resolved`，`ios_ui_observed`/`phone_runtime_equivalence_proved` 恒 false（与上游一致）
-- 🔴 **当前闸（只剩一条）**：`launchd_main_observed=false`——两次 init-exec 都返回但 `_initproc_spawned=0`，
-  且新拿到的 `_exit_records` **全零**，说明没有任何进程真退出过，launchd 压根没进 main；停点是异步 AMFI
-  `"AMFI: No PMGR?"` panic。**上游自己也停在这里**（判词见 U 步之五末条）。候选解是 `--pmgr` 档（它同时是
-  U 步之三留的 `out/umi/screen-qemu-baseline.json` 的前置，`check_umi_screen_qemu.py:37` 要
-  `screen_diagnostics && gic_diagnostics && pmgr` 三者同开），但本机 donor
-  `kernelcache.decompressed`（`f18b4df8…`）里 `nm` 6056 个符号中找不到 `build-umi-platform-power.py`
-  钉的那三个 VA（`0xfffffff005ce26d8`/`0xfffffff004a22568`/`0xfffffff004a230ec`）也没有 ApplePMGR 名字，
-  而且它把 `kernel/kernel.macho` 当**审计输入**（不是清单），手抄的 provider 清单件不能直接复用——这条腿要单独归因
+- ✅ **U 步之六（`--pmgr` 档结案，2026-11-05）**：`--systemos --gic-diagnostics --screen-diagnostics --pmgr`
+  四旗标同开 → `qemu-systemos-pmgr.macho`（sha `284fa323…`）→ 官方 `check_umi_pmgr_observation.py`
+  **六个 mode 全 PASS**（off/lifecycle/publish/refusal/root/amfi）。硬证据：仪表 lr =
+  `IOPlatformExpert::start+0x1bc`；publish 面 `stage=5 / parent_size==own_size==0x4b8a8 / attached=1 / registered=2`；
+  refusal 面 `stage=0x1aa`、`status=0xe00002c7`；**amfi 面 `pc` 恰等于契约址 `0xfffffff004aaeb54` 且
+  `x20==nub`、`x21==0xffffffff`**（原版 AMFI 真 retain 了我们发布的 nub）。
+  深跑 `umi-pmgr=2` 里 `_panic` 一次没命中（`skipped_target_hits=0`）、`_initproc_spawned=1`，
+  **官方 `analyze_umi_systemos_qemu.py` 首次给出 `launchd_main_observed: true` +
+  `status: launchd_main_and_services_observed_within_bounded_run`**（`panic_recorded`/`critical_exit_recorded` 同时为真，
+  native4k 面从 `36121/44/11` 跳到 `201083/5878/53`）
+- ✅ **U 步之六之四（官方 screen 资格化结案，2026-11-05）**：补上 boot-arg `boot-progress=2` 之后
+  `45-screen-baseline` **官方 `check_umi_screen_qemu.py` 本机首次 PASS**，产
+  `out/umi/screen-qemu-baseline.json`（`status=passed_real_timed_framebuffer_diagnostics`）——
+  U 步之三留到最后的一条官方 baseline 就此闭合。至此本机已有的官方资格化件：owner-root 23/23、
+  trustcache PASS、pmgr 六 mode PASS、SystemOS analyze 跑全、screen baseline PASS
+- 🔴 **当前闸（新）**：launchd 起来了、也派生了服务，但**被派生的服务退出把内核推进了「致命关键进程退出」路径**。
+  屏上 `UMI PANIC tzinit[171 exited -- no exit reason available -- (signal 0, exit status 30)`，`marks=3197`；
+  超时停点 `pc=_halt_all_cpus+0x34`，栈是 `_unix_syscall+0x2b0` ← `_exit+0x1c` ← `_exit_with_reason+0x1b0` ←
+  `_proc_exit+0x0` → `_panic_trap_to_debugger+0x38c` → `_kdp_trap+0x20`。
+  那句话本体是原版 XNU 的（`bsd/kern/kern_exit.c` 里 `p_exit_reason == OS_REASON_NULL` 分支），
+  上游观测件 `zzzzzzzzzzzz-umi-critical-exit-trace.patch` 只在其前面加了 record(8)/record(9) 观测，
+  注释原话「The original crash policy and panic remain unchanged, including non-init children」——
+  **所以这不是 UniXNU 自己加的保险丝，是原版对 critical 作业的退出策略真触发了**
+- 🔴 **下一闸的取数通路已经就位（本轮新增）**：`_exit_records` 之前「全零」的真因不是没人退出，
+  是 boot-progress 仪表被 `boot-progress=` boot-arg 闸在外面（见 U 步之六之四）。补上后同一档实测
+  `total=2` + 两行 `p1 init status=0 sig=0 exit=0 ns=0 sub=0`，屏上
+  `Proc ss exits: total=2 no zero-status-or-reason=0`；而 `45` 停在 monitor 第 8 圈（≈8 秒），
+  `tzinit` 是十几秒后才退的，所以**把停点放宽（深跑 + `boot-progress=2`）就能拿到它的 reason 面**。
+  诊断页还另给了一条新线索：`SpringBoard: absent from this process pass`（UI 层进程压根没被派生）
 - ℹ️ Mac VM：本轮不用、也别删。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm` 与官方 trustcache 资格化；
   唯一残留缺口是「往 APFS 卷写文件」（`apfsprogs` 无写文件工具，`apfs-dkms` 已装未编，本树 `bsd/miscfs/` 无 APFS 驱动）
 

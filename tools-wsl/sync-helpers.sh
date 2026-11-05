@@ -29,6 +29,20 @@ else
   echo "缺 shim：本机没有 /usr/bin/llvm-objdump，boot-progress 档会停在 objdump 调用"
 fi
 
+#   llvm-objcopy：Ubuntu LLVM 18.1.3 那份对 Mach-O 不实现 --globalize-symbol（u204 逐选项实测），
+#     而 build-umi-platform-power.py:131 与 build_umi_data_display.py:114/:118 都点名它。
+#     shim 装进 /usr/local/bin（PATH 里在 /usr/bin 前面，shutil.which 先命中它），
+#     只补 Mach-O 的 globalize 这一步，ELF 与非 globalize 调用原样直通真件。
+if [ -x /usr/bin/llvm-objcopy ] && [ -f "$S/macho-globalize.py" ]; then
+  mkdir -p /usr/local/lib/umi
+  tr -d '\r' < "$S/macho-globalize.py" > /usr/local/lib/umi/macho-globalize.py \
+    && chmod 755 /usr/local/lib/umi/macho-globalize.py && echo "装 macho-globalize.py"
+  tr -d '\r' < "$S/llvm-objcopy-macho.sh" > /usr/local/bin/llvm-objcopy \
+    && chmod 755 /usr/local/bin/llvm-objcopy && echo "装 shim /usr/local/bin/llvm-objcopy"
+else
+  echo "缺 shim：llvm-objcopy 或 macho-globalize.py 不在位，platform-power / data-display 档会停在 objcopy 调用"
+fi
+
 if [ "$PRUNE" = "--prune" ]; then
   for c in /usr/local/bin/*; do
     b=$(basename "$c")
@@ -38,6 +52,7 @@ if [ "$PRUNE" = "--prune" ]; then
     [ -f "$S/$b.sh" ] && continue
     head -1 "$c" 2>/dev/null | grep -qE '^#!.*(ba)?sh' || continue
     case "$b" in adb|uefi-*|run-toolchain|run-fetch|run-hostcheck|wait-and-build) echo "留 $b（历史阶段/外部工具，不动）"; continue ;; esac
+    case "$b" in llvm-objcopy) echo "留 $b（shim，白名单装件，不归陈旧快照）"; continue ;; esac
     rm -f "$c" && echo "删陈旧 $b"
   done
 fi
