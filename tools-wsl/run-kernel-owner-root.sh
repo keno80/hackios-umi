@@ -48,7 +48,7 @@ touch /tmp/owner-root-start-marker
 cd "$WS" || exit 1
 ensure-dev-bind || exit 1
 setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile qemu \
-  --crypto-bootstrap prelinked --native-ufs --owner-root "$MODE" -j 5 \
+  --crypto-bootstrap prelinked --native-ufs --owner-root "$MODE" -j 6 \
   > "$LOG" 2>&1 < /dev/null &
 echo $! > "$LOGD/kernel-owner-root.pid"
 sleep 12

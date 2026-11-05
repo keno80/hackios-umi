@@ -68,7 +68,7 @@ wsl.exe 直接回显是 UTF-16，看着像二进制，需要 `tr -d '\000'`。
 - `tools-wsl/ensure-dev-bind.sh` — `devices/umi` bind mount，构建前置
 
 ### 内核构建
-- `tools-wsl/run-kernel-walk.sh` — **主构建入口**：`build_umi_xnu.py --stage kernel --profile phone --mockfs-root -j 5`
+- `tools-wsl/run-kernel-walk.sh` — **主构建入口**：`build_umi_xnu.py --stage kernel --profile phone --mockfs-root -j 6`
 - `tools-wsl/h-wait-kernel.sh` — 等构建结束并取日志尾
 - `tools-wsl/preflight-kernel.sh` / `run-kernel-cold|mockfs|screen|trace|pin|main.sh` — 各档位的历史入口，新档从 `run-kernel-walk.sh` 改参数
 
@@ -105,7 +105,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - `tools-wsl/verified-root-host-check-linux.py` — Linux 侧 host 自检，顶掉上游 Mac 的 `VerifiedRoot/tests/check.py`
 - `tools-wsl/prepare-root-policy-linux.py` — 9.1 GiB 两窗逐块真验签，产 `policies.json` + 73,287,008 B manifest
 - `tools-wsl/run-root-policy.sh` — 上面三件的总入口 + `build_umi_root_bundle.py`，产 `tree/build/umi-root-policy/libVerifiedRootProbe.a`
-- `tools-wsl/run-kernel-owner-root.sh audit|trust` — `build_umi_xnu.py --stage kernel --profile qemu --crypto-bootstrap prelinked --native-ufs --owner-root <档> -j 5`
+- `tools-wsl/run-kernel-owner-root.sh audit|trust` — `build_umi_xnu.py --stage kernel --profile qemu --crypto-bootstrap prelinked --native-ufs --owner-root <档> -j 6`
 - `tools-wsl/run-owner-root-qemu.sh audit|trust [run名]` — prelink + `run_umi_qemu.py --root-volume` 取证，产物落 `out/umi-qemu/<run名>/`
 - `tools-wsl/evaluate-owner-root-evidence.py RUN [audit|trust]` — 把官方 `check_umi_owner_root_qemu.py` 的 23 条断言逐条拆成 PASS/FAIL（断言集合不增减，别拿去当"我放宽了"的借口）
 - 两档的停法不一样：audit 停 `_panic`（拒挂根是它的证据），trust 停 `_native_owner_root_accepted_checkpoint` 且必须带 `--finish`
@@ -200,7 +200,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 
 ### U 步之六：`--pmgr` 档——把 `AMFI: No PMGR?` 这道闸归因掉
 - `tools-wsl/run-kernel-systemos-pmgr.sh` — `build_umi_xnu.py --stage kernel --profile qemu --crypto-bootstrap prelinked
-  --native-ufs --owner-root trust --systemos --gic-diagnostics --screen-diagnostics --pmgr -j 5`。
+  --native-ufs --owner-root trust --systemos --gic-diagnostics --screen-diagnostics --pmgr -j 6`。
   前置自检里必须验 `kits/umi/UmiPlatformPower.cpp` + `scripts/build-umi-platform-power.py` +
   `zzzz-umi-pmgr.patch` + boot-progress 套件 + 两枚 objcopy/objdump shim 全在位，再对 prelink 输入档
   跑一次 `tree/scripts/audit-umi-pmgr-contract.py`（**`devices/umi/scripts` 那份不能用**：它的
@@ -317,6 +317,9 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
     → `packed_ramdisk.pack()` + 身份 `.json`（`volume_uuid` 从 `seed.json` 取、大写归一）→ 按 `build_umi_xnu.py:92-95/:150`
     的三条闸自检 → 打印「把 `.json` 里的 `volume_uuid` 交给 `run-kernel-systemos-data.sh` 重编内核」
   - 语法/行为自测：`.json` 与既有 `data-512.json` 键集逐键一致；两件均 LF（`*.sh text eol=lf` 已覆盖 `tools-mac/`）
+  - `tools-mac/mount-raw-apfs-mac.sh attach|detach|list <裸容器>` — 把 Linux 侧 `libfsapfs` 解不动的 Apple 窗（method 9 = lzfse）
+    在 Mac 上只读挂起来直接读：判偏移 `0x20` 是 `NXSB` 后 `hdiutil attach -readonly -noverify -imagekey diskimage-class=CRawDiskImage`，
+    **少了 `-imagekey` 就是那句「无法识别映像」**（u530 误判的来路），不需要 sudo、不需要 dd 包装。自测见 `out/probes/u539.txt`
 - **Mac 侧现在是 agent 可直驱的**（2026-11-05 实测，别再回答「要用户手动在 Mac 上跑」）：
   那台 VM 是 **Hyper-V** 不是 VMware（`D:\HyperOSX\VMs\macOS-HyperV`，macOS 15.8.2 / Darwin 24.6.0 / x86_64，4 vCPU / 8 GiB，
   建/起件在 `D:\HyperOSX\create-macos-vm.ps1`、`start-macos-vm.ps1`）。
@@ -428,8 +431,16 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 
 ### U 步之八之二：55 档三发 SIGTRAP 的指令级归因（静态反解到此为止，别再来一趟）
 - **崩溃环才是 trap 级证据**：`_exit_records` 的 `crash[3]×400`@852，每行形状
-  `p<pid> <name> sig<N> PC<hex> LR<hex> E<esr> F<far> +<slide> bt<帧表>`；`reason[330]`@2052 **只由 SIGABRT 路径填，
-  SIGTRAP 恒空**（54/55 两档实测都空——那是语义如此，不是取数失败）
+  `p<pid> <name> sig<N> PC<hex> LR<hex> E<esr> F<far> +<slide> bt<帧表>`。布局唯一出处 =
+  `devices/umi/package/boot-progress/BootProgressLifecycle.h:6` 的 `struct bp_exits`
+  （`total/failed/crashes` 三枚 u32 + `recent[4][120]` + `failures[3][120]` + `crash[3][400]` + `reason[330]` = 2382 B，
+  故 `reason` 在 @2052；59 档实测头三值 `139/16/10` 与官方 `process_exit_counts` 逐字相同，可当解码自检）
+- **`reason` 恒空的真因（本轮纠正，别再写成「只由 SIGABRT 填」）**：填它的不是 `bp_exit_add`（它只写
+  recent/crash/failures 三个环），而是 `BootFaultProbe.c:130 boot_progress_exit_reason()`——
+  `signal!=6 || pid!=proc_selfpid()` 直接返回；命中后只扫退出进程的可写 malloc 区，
+  捞 `uncaught exception`（rank2）或 `reason: `（rank1）文本。所以 SIGTRAP 恒空是语义如此，
+  而 56 档 `lsd` 两发 `sig6` 仍空 = **它的 abort 文本不在 malloc 区**（`__abort_with_payload` 那类常量在 `__TEXT`），
+  不是取数失败，也不是探针没链上
 - **三发全是 `ESR.EC=0x3c`(BRK) + `FAR=0`** ⇒ 件自己打的 trap。`brk #0` = SpringBoard p162
   （`PC==LR=0x19f3df2ec`）；`brk #1` = liveactivitiesd p156/p160（同形 `PC=0x1c18f64f8 / LR=0x1c18f64cc`，
   而 `0x1c18f64cc` 本体是 `cbz x20 -> 0x1c18f64f8`，函数形状 `bl → mov x20,x0 → cbz x20 → brk #1`
@@ -455,6 +466,54 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   （写成 `0xFFFFFFE0` 永不匹配，Rn 在 bits[9:5]）；址→文件 = `头文件址 + mapping.fileOff + (v − mapping.address)`
 - `tools-wsl/evaluate-jetsam-ram-ab.py` 已扩到崩溃环：`3.5` ESR 解码 + 去滑移 + bt 帧、`3.6` reason 段、
   `4.5` 闸的交接。54/55 实测 `rc=0`：54 崩溃环 0 发、55 三发全解出（`out/probes/u465.txt`）
+
+### U 步之九：显示闸结案——legacy display 服务起来并映射上帧缓冲
+- `tools-wsl/run-kernel-systemos-display.sh` — 在 `--pmgr` 档之上加 `--legacy-display --data-ramdisk <Mac 种子>`；
+  kick 前硬闸 boot-progress 套件 + 两枚 shim + `--gic-diagnostics --screen-diagnostics`（后者是 `_exit_records` 的出处）
+- `tools-wsl/run-legacy-display-qemu.sh RUN [init|runtime|gate]` — **不直调官方 runner**：它第 34 行把
+  `--owned-memory-mib` 写死 320，而 U 步之八已实测 320 MiB 必触发 jetsam。旗标集/符号集仍逐字对齐官方：
+  boot args 取官方 26-29 行，符号集用 **ast 从官方件运行时抽**（杜绝手抄漂移），三窗只读盘 +
+  `--trust-cache --no-vmm-property --accel tcg` 同官方；官方 provenance 三条硬要求本机恒 false，
+  所以补的观测件没污染判读口径
+- `tools-wsl/evaluate-legacy-display-gate.py RUN [--nm ...] [--check-keys]` — gate 停点的本地判读件。
+  **为什么要有它**：官方 `analyze_umi_data_display_qemu.py` 第 48 行无条件断言 Data 身份三合一，
+  而显示生命周期的终结点早于 Data RAM 块种子化（57 档实测 `native_owner_data_status=0xFFFFFFFF`、
+  `native_ram_block_writes=0`）→ 那条 assert 必炸 `exit=1`，**跟显示这一格好不好无关**。
+  本件只做官方 53-56 行同一套显示五条（判据一字未增减），到齐那一刻就出结论；
+  官方件仍是 runtime 长窗档的权威判读，别拿本件去替它
+- **`TIMEOUT` 是兜底，不是证据窗口**（用户原话「每次都是900秒，是否太死板」）：三种停法——
+  `gate` 停 `_native_legacy_display_checkpoint`（`LegacyDisplayProbe.cpp:272-383` 成功/失败两条路的**共同收尾**，
+  五条判据在 `start()` 里就已定形：`registration_observed` :198、`gop_mapping_observed` :217），
+  实测 **20-40 秒收工**（对 56 档熬 900 秒）且 `pc` 恰等于 checkpoint 址、`bounded_timeout_interrupted=False`；
+  `runtime` 停 `_ml_panic_trap_to_debugger`（官方 runtime 停点）留给帧与进程面；`init` 停 `_execve`
+- **✅ 显示闸过了**（56 档官方 analyze `exit=0` + 57/60 档本地件 `exit=0`，同 sha 内核 `bb52c04b…`）：
+  `stage=10 / start_result=1 / registration_calls=1 / gop_virtual=0xfffffff1… / guard_slot=0` →
+  官方口径 **`legacy_service_started_and_framebuffer_mapped = True`**。硬证据面：
+  `surface_status=0 surface_found=1`（IOSurface 载入并等到 `IOCoreSurfaceRoot`）、`dt_attached=1`（nub 挂上 `/arm-io`）、
+  `gop 800×600 bytes=1,920,000 physical=2,088,370,176`、
+  **`client_calls=2 pid=95 status=0 class=IOMobileFramebufferUserClient`**（真用户件开上了 framebuffer user client）；
+  屏上 `OS display service not connected` 已被 `DISPLAY stage=10 PM=4 called callback=1 guard=0 owned=0` +
+  `IOMF / SHAMP / HANDOFF / CLIENT` 完整面取代（`out/screens/56-legacy-display-runtime.png`）
+- **官方读址集只有 26 枚显示仪表，帧提交面一枚都没读**（u509 ast 实测）：`frame_count/frame_kind/frame_time/
+  frame_stats/frame_colors*`、`copy_*`、`swap_*`、`retired_*`、`client_class` 全在内核里但官方 runner 不挂 →
+  官方 analyze 只能报 `retirement_calls=0`，答不了「有没有件真提交帧」。取证件按判读件 `SIZES`
+  （尺寸唯一出处 = `LegacyDisplayProbe.cpp` 的 volatile 声明原文，u510 符号间距对得上）**补挂 51 枚**，
+  并按 `nm` 过滤——符号不在就跳过，别让 `run_umi_qemu.py` 在建 run 目录前 error 出来
+- `--check-keys` 是必需的自检：本树 QEMU 短读只验「非 `E22`」，回包 16 字符冒充 80 字节它不说话，
+  所以判读件按**声明尺寸逐枚核对回包长度**（58 档实测 96 枚键、`memory_read_errors` 空、`读址集齐`）
+- ⚠️ **58 档教训：gate 停点也会被偶发 zone panic 抢走**。那次 `pc=_ml_panic_trap_to_debugger`、
+  `x0="%p not in the expected zone … UMI28 nz=… slot=…"`，仪表全 0（stage=0 = 显示 probe 压根没跑）。
+  这是 [[project-umi-zidx-panic-gate]] 那条「偶发不追根」的老面孔，**与补挂读址无关**——
+  判据：同 sha 内核重跑（60 档 20 秒停在 checkpoint、五条全过）即确认为偶发，别去追根
+- **实时画面只有一个口**（用户问「qemu 的日志与画面刷新是否不实时」，实测两条独立原因）：
+  `--capture-screen` 只在**停点**抓一张；boot-progress 仪表是现场画 framebuffer 的，uart 在引导早期就冻住。
+  长跑期间唯一的实时通路是 **QMP `screendump`**（QEMU 8.2.2 TCG，`-display none -device ramfb`，
+  runner 每次开 `-qmp unix:/tmp/sheng-qmp-XXXX/qmp.sock`）→ `monitor_umi.py:live_qemu()` 从 `ps` 里发现套接字、
+  `monitor_web.py:pick_source()` 每 2 秒抓一帧，面板标题带 run 名
+- **构建并发 `-j 6`**（本机 6c12t，`-j 5` 是历史值）：14 个 `run-kernel-*.sh` 全部同步；
+  监考面板 `LANE_COUNT = 6`（数据层与 Web 层两处都要改，只画 4 条会把「并发没吃满」误报成现场）
+
+
 
 ### V 步：上游站点、收录与设备页（口径已核对到源码，别再靠 WebFetch 猜）
 
@@ -519,7 +578,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 `out/fixtures/`（容器件）、`out/images/`（真机档镜像）、`out/scratch/`。
 临时实验放 `out/scratch/`，别往 `tools-wsl/` 根上再堆一次性脚本。
 
-## 进度到哪了（2026-11-05）
+## 进度到哪了（2026-11-06）
 
 - ✅ Linux host 工具链、host 校验、内核基线（QEMU 验过）
 - ✅ umi UEFI 菜单包 + 真机 `fastboot boot` 出菜单（`MuPatches` 必须 CRLF）
@@ -628,6 +687,50 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   但**可写 Data 种子只能由 macOS 的 `hdiutil`/`diskutil` 造**（`newfs_apfs` 才会写 checkpoint 描述符区），
   上游自己也只在 `hvf`（macOS）上资格化过这条路。**两趟都已实测**：空卷过「驱动认容器 + rw 挂 `/private/var`」，
   带 `/private/var` 骨架的 64 MiB 卷把 `tzinit` 那道闸一起带走（`49-data-mac-var`，见上）。
+- ✅ **U 步之九（显示闸结案，2026-11-06）**：`--legacy-display` 档内核（sha `bb52c04b…`）→ 官方
+  `analyze_umi_data_display_qemu.py` **`exit=0`、`legacy_service_started_and_framebuffer_mapped = True`**（56 档长窗）
+  ＋ 本地同式件在 **gate 停点 20-40 秒**复现同一结论（57/60 档，`pc` 恰等 `_native_legacy_display_checkpoint`、
+  非超时停）。硬证据：`stage=10 / start_result=1 / registration_calls=1 / gop_virtual≠0 / guard_slot=0`、
+  `surface_status=0 surface_found=1`、`dt_attached=1`、`gop 800×600 1,920,000 B`、
+  **`client_calls=2 pid=95 class=IOMobileFramebufferUserClient`**（真用户件开上了帧缓冲）。
+  屏上 `OS display service not connected` 已换成 `DISPLAY stage=10 PM=4 called callback=1 guard=0 owned=0` 完整面。
+  **下一闸是「谁真提交帧」**：`retirement/transfer/prepare/frame_count/copy_n` 全 0——官方读址集压根没读这面，
+  本仓已补挂 51 枚仪表 + `--check-keys` 自检。详见 U 步之九
+- ✅ **U 步之十（59 档帧提交面结案 + 当前闸定性，2026-11-06）**：runtime 长窗档（900 秒、超时停、
+  `--check-keys` 96 枚键全读上、`memory_read_errors` 空）官方 `analysis.json` 首次产全。硬值：
+  **`native_mobile_graphics_load_status=0`（原版 `com.apple.iokit.IOMobileGraphicsFamily` kext 真加载成功**，
+  出处 `bsd_init.c:549 OSKextLoadKextWithIdentifier`）、`legacy_service_started_and_framebuffer_mapped=True`、
+  `client_calls=4 pid=73 status=0 class=IOMobileFramebufferUserClient`、`data_mounted_writable=True`、
+  `launchd_main_observed=True`、`panic_recorded=False`、`ram_block(读,写)=1127/1433`、
+  `process_exit_counts=[139,16,10]`；**`actual_frame_retirement_observed=False` + 帧面全 0 = 当前唯一闸**。
+  崩溃环最近三发全是 `liveactivitiesd sig5`，去滑移 `0x1d687a4f8-0x14f84000=0x1c18f64f8`
+  **与 u465 那条 Swift 强制解包 nil 逐字相同**（同一闸没变，别当新问题）
+- 🔴 **UI 落地的口径已核对到上游逐字原话**（`docs/devices/umi.md:26/28/29`）：
+  「Apple logo and Hello / Setup Assistant **via CPU framebuffer presentation**」+
+  「GPU acceleration | **Not implemented**」+「Setup completion / home screen | Not verified」
+  → **到 UI 第一格不需要 GPU**，且 home screen 连上游都没验过；我们的 CPU 合成旗标
+  （`offline-legacy-{cpu-present,transfer,validate}=1`）已全给，没触发是因为提交者没走到渲染主循环
+- 🔴 **显示侧 boot arg 判死要收窄**（上轮那句只对 `LegacyDisplayProbe.cpp` 成立）：内核本体 `bsd_init.c`
+  还读 `offline-iogpu-load`(:527)、`offline-mobile-graphics-client`(:561)，加上 `offline-legacy-retire`
+  共 **3 枚 59 档没给**；但 `probe-darwinboot-xnu.py:114/:122` 的 help 自己写明
+  「no framebuffer service is supplied」/「class allocation and out-of-range selector refusal checks」
+  = 观测开关，不会自己造出帧提交
+- ✅ **Mac 能原生读 Apple 的裸 APFS 容器——上一句判死作废**（u535/u536/u538 实测）：
+  `hdiutil attach -readonly -noverify -imagekey diskimage-class=CRawDiskImage <裸容器>` 一条就挂上
+  （u530 那次败在手少给了 `-imagekey`，hdiutil 默认只认带 UDIF trailer 的镜像）。挂出的 OS 卷
+  `DawnUpdate21H461…OS` 里 lzfse（libfsapfs 报的 method 9）由 macOS 自己解，**不需要 sudo、不需要 6 GiB dd、
+  不需要装任何包**。入口件 `tools-mac/mount-raw-apfs-mac.sh`（attach/detach 两用，只读）。
+  OS 卷容器本体 = `apple-el0/apfs.bin`（6,077,546,496 B，sha `d8808bea…`，单卷，`/private/var` 顶层 29 项）
+- ✅ **「补全 Data 种子内容」这一条前提已量化掉**（u536/u538，同一枚 OS 卷逐字节比）：
+  `/private/var` 去掉上游显式排除的 `staged_system_apps` 后 = **39 枚常规文件 / 166 目录 / 1 symlink / 692 KiB**
+  （232 MiB 那堆全在 staged 里）。Linux 那趟 u371 解出的 207 条目**一项不缺、一项不多**，差的只是
+  **14 枚 0 字节占位（合计 2,646 B，全是 MobileAsset 的 `Info.plist`/`anchor.cfg` 一类）+ `db/timezone/localtime`
+  的 symlink 目标**（真值 `-> /var/db/timezone/zoneinfo/US/Pacific`）。
+  → **种子内容不是「没人提交帧」的闸**，别再为它重编内核。真内容种子已备好待用（不重编不生效）：
+  `D:\HyperOSX\Share\seed-full\owner-data-64.cdr`，UUID `C0077C12-D0DC-4AB9-B1A2-11DDAF639318`、
+  sha `3b57e088…`、67,108,864 B、种子里 40 文件
+- ℹ️ **这条通路的真正价值在后面**：同一把 `-imagekey` 能挂任何 Linux 侧 `libfsapfs` 打不开的窗
+  （SystemOS cryptex、`userdata-root.img` 那枚 9.38 GB），需要真字节时先在 Mac 上挂起来看，别再去改 `libfsapfs`
 - ℹ️ **V 步口径已核对（2026-11-05）**：上游八步里我们 **1–5 全过、6 部分、7 host 全链过 + 真机只到菜单、8 未做**；
   **umi 页在上游站上已存在**（钉 `reAAAq/UniXNU-umi@3eb7257`，本地那棵树的头，`format=1` 手写 preserve 页，
   报的是**另一台 12 GiB** 到 Hello/Setup+touch）。要在设备页展示我们的项目 = 两条闸（`board.toml` 要有 `[components]`、

@@ -31,7 +31,7 @@ fi
 # 收据要用 p.relative_to(ROOT)，devices/umi 必须是留在工作区里的路径（bind 而非符号链接）
 ensure-dev-bind || exit 1
 cd "$WS" || exit 1
-setsid nohup python3 -u tools/build_umi_xnu.py --profile phone -j 5 > "$LOG" 2>&1 &
+setsid nohup python3 -u tools/build_umi_xnu.py --profile phone -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-pin.pid"
 sleep 8
 pid=$(cat "$LOGD/kernel-pin.pid")

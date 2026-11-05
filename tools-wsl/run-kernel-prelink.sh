@@ -35,7 +35,7 @@ ensure-dev-bind || exit 1
 # early_trace，不核对 stage（u17 取证）。
 # 不带 --mockfs-root：APFS 探针在 vfsinit() 之后立即触发并停在 _native_apfs_probe_checkpoint，走不到挂根。
 setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile qemu \
-  --crypto-bootstrap prelinked -j 5 > "$LOG" 2>&1 &
+  --crypto-bootstrap prelinked -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-prelink.pid"
 sleep 15
 pid=$(cat "$LOGD/kernel-prelink.pid")

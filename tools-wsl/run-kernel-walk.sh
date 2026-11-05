@@ -28,7 +28,7 @@ touch /tmp/walk-start-marker
 cd "$WS" || exit 1
 ensure-dev-bind || exit 1
 setsid nohup python3 -u tools/build_umi_xnu.py --stage kernel --profile phone \
-  --mockfs-root -j 5 > "$LOG" 2>&1 &
+  --mockfs-root -j 6 > "$LOG" 2>&1 &
 echo $! > "$LOGD/kernel-walk.pid"
 sleep 12
 pid=$(cat "$LOGD/kernel-walk.pid")

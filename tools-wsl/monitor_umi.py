@@ -17,6 +17,8 @@ KERNEL = f"{W}/out/umi-xnu/umi/kernel/source-kernel.macho"
 EDK2 = "/home/unixnu/code/Mu_Basecore"
 UEFI = "/home/unixnu/code/uefi-umi-b"
 PATCHES = ["Gic-Spurious", "Mac-Bash3", "Dxe-Trace", "Display-Services-Trace"]
+# 本机 6c12t，构建按 -j 6 起；通道只画 4 条会把「并发没吃满」误报成现场
+LANE_COUNT = 6
 UNI_LOGS = "/home/unixnu/code/UniXNU-main/out/unixnu-logs"
 DEV_LOGS = "/mnt/e/Code/HackIos/out"
 
@@ -267,11 +269,32 @@ def lanes(st):
         except ValueError:
             secs = 0
         rows.append((name, float(cpu.replace(",", ".")), secs))
-        if len(rows) >= 4:
+        if len(rows) >= LANE_COUNT:
             break
-    while len(rows) < 4:
+    while len(rows) < LANE_COUNT:
         rows.append(("idle", 0.0, 0))
     return rows
+
+
+def live_qemu():
+    """在跑的取证 QEMU：(pid, QMP socket, run 名)，没有就 None。
+
+    为什么需要它：run_umi_qemu.py 每档都开一条 -qmp unix:/tmp/sheng-qmp-XXXX/qmp.sock，
+    而 boot-progress 仪表把现场画在 framebuffer 上——uart 日志引导早期就冻住，
+    screen.png 只在停点抓一张。所以取证档的「实时现场」只有 QMP screendump 一条口。
+    """
+    out = run("ps -eo pid=,args= | grep -F qemu-system-aarch64 | grep -v grep")
+    for ln in out.splitlines():
+        p = ln.strip().split(None, 1)
+        if len(p) < 2:
+            continue
+        pid, args = p
+        m = re.search(r"-qmp unix:([^,\s]+)", args)
+        if not m or not os.path.exists(m.group(1)):
+            continue
+        r = re.search(r"out/umi-qemu/([^/\s\"']+)", args)
+        return int(pid), m.group(1), (r.group(1) if r else "")
+    return None
 
 
 def newest_dev_log():
@@ -460,7 +483,7 @@ def render(st, w, budget, err_only, full_log, rows):
 
     # ---- 左：通道 / 右：资源
     lr = lanes(st)
-    l_rows = [head("编译/工作通道", "top4 by CPU", left_w)]
+    l_rows = [head("编译/工作通道", f"top{LANE_COUNT} by CPU", left_w)]
     prog_lbl = st.get("PROGRESS_LABEL", "")
     prog_tot = st.get("PROGRESS_TOTAL", "")
     prog_val = st.get("PROGRESS_VALUE", "")

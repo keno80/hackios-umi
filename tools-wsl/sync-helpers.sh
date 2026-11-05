@@ -9,7 +9,7 @@ PRUNE=${1:-}
 
 # 白名单 = 顶层脚本实测按名字点名的那些（对照 out/probes/entry-pathcmds.txt）
 # monitor_umi.py/launch-web.sh 另装 umi-mon.py、umi-web.py，不归这里管。
-WL="unixnu-env ensure-dev-bind progress dashboard rawlog run-umi-qemu ab-status"
+WL="unixnu-env ensure-dev-bind progress dashboard rawlog run-umi-qemu ab-status brew"
 
 for f in $WL; do
   [ -f "$S/$f.sh" ] || { echo "跳过 $f：顶层没有 $f.sh"; continue; }
@@ -41,6 +41,28 @@ if [ -x /usr/bin/llvm-objcopy ] && [ -f "$S/macho-globalize.py" ]; then
     && chmod 755 /usr/local/bin/llvm-objcopy && echo "装 shim /usr/local/bin/llvm-objcopy"
 else
   echo "缺 shim：llvm-objcopy 或 macho-globalize.py 不在位，platform-power / data-display 档会停在 objcopy 调用"
+fi
+
+#   brew --prefix llvm：display 档的生成件 build-from-sheng.py:157 先叫 brew 拿 LLVM 前缀，
+#     再点名 $(前缀)/bin/llvm-objcopy 切 __mod_init_func。本机没有 Homebrew，那条是 FileNotFoundError。
+#     所以把 /opt/homebrew/opt/llvm/bin 铺成 LLVM 18 的符号链接农场，llvm-objcopy 单独指向上面那个
+#     Mach-O shim（真件对 Mach-O 不实现 --globalize-symbol），其余工具直通。
+if [ -x /usr/local/bin/llvm-objcopy ] && [ -d /usr/lib/llvm-18/bin ]; then
+  mkdir -p /opt/homebrew/opt/llvm/bin
+  n=0
+  for b in /usr/lib/llvm-18/bin/*; do
+    [ -f "$b" ] || continue
+    name=$(basename "$b")
+    if [ "$name" = llvm-objcopy ]; then
+      ln -sfn /usr/local/bin/llvm-objcopy "/opt/homebrew/opt/llvm/bin/$name"
+    else
+      ln -sfn "$b" "/opt/homebrew/opt/llvm/bin/$name"
+    fi
+    n=$((n + 1))
+  done
+  echo "装 shim /opt/homebrew/opt/llvm/bin（$n 枚 LLVM 18 入口，llvm-objcopy 指向 Mach-O shim）"
+else
+  echo "缺 shim：没有 /usr/lib/llvm-18/bin 或 llvm-objcopy 影子，display 档会停在 brew --prefix llvm"
 fi
 
 if [ "$PRUNE" = "--prune" ]; then
