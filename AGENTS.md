@@ -374,6 +374,61 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   `CLK … dt-converted=89231ms cnt=rgx-converted=892312ms`（Rogue GPU 时钟面）；
   ④`LIVE: DEADLINE EXCEEDED` 本身——诊断页的开机期限已过，系统还在跑但没有 UI 落地
 
+### U 步之八：jetsam 击杀归因——客存判死，owned-memory 才是那道闸（已结案）
+- **`ns=1 sub=4` 的权威语义**：`ns=1` = `OS_REASON_JETSAM`（`bsd/sys/reason.h:88`），
+  `sub=4` = `JETSAM_REASON_MEMORY_VMPAGESHORTAGE`（`bsd/sys/kern_memorystatus.h:294`）；
+  生产者 = `memorystatus_thread` 的 `MEMORYSTATUS_KILL_TOP_PROCESS`（`doc/vm/memorystatus_kills.md:17`）；
+  触发判据本体 = `memorystatus_avail_pages_below_critical()` 里 `available <= critical` 这一条比较
+  （`kern_memorystatus.c:3652`），门槛 `MEMSTAT_PERCENT_TOTAL_PAGES(4|5)` 按 **`max_mem`** 算
+  （`kern_memorystatus_internal.h:227`）——**不是按 dram，也不是按 QEMU 的 -m**
+- **内存几何有四处，只有第三处管 jetsam**：`ADT /chosen/dram-size` → `gDramSize`（`arm_init_sptm.c:888`）；
+  QEMU `-m`；**`ADT /chosen/darwinboot-memory-size` = `args->memSize`** → `arm_init_sptm.c:1551`
+  `gPhysSize = mem_size = ((gPhysBase + args->memSize) & ~PAGE_MASK) - gPhysBase` → `:1745 max_mem = mem_size`；
+  屏上 `MEM totalMiB` 就是 `max_mem>>20`（`devices/umi/package/boot-progress/BootProgress.c:79/440-441`），
+  所以屏上那行与活体 `_max_mem` 是同一把尺子
+- `tools-wsl/make-run-umi-qemu-guest-ram.py` — 两个旋钮一次挂上真正被执行的那份 `run_umi_qemu.py`：
+  `UMI_GUEST_RAM_MIB` 同动 QEMU `-m` 与 ADT `dram-size`（两件必须同动），
+  `UMI_OWNED_MEMORY_MIB` 动 ADT `darwinboot-memory-size`（替掉 `--owned-memory-mib` 的窄 `choices` 闸）。
+  两个都不设 = 上游几何（1 GiB / 256 MiB），所以同一个产物既是实验档也是对照档
+- **补丁件的三条坑（这轮补上的）**：①`restore()` 必须认**旧版定义块**——旧块正好是新块的前五行，
+  所以查找顺序不能反，否则旧版补丁永远撤不掉；②锚点已处于未打补丁形态时逐条跳过，不要整体判死；
+  ③看到旧版补丁在场就**拒绝叠加**（`exit 1` 并提示先 `--restore`），而不是叠出第二份定义块
+- **50/51 实测：客存这条假设被否掉**——`dram-size` 与 `-m` 抬到 2 GiB，`darwinboot-memory-size` 仍是
+  320 MiB（两档 provenance 都是 `owned_memory_bytes=335,544,320`），jetsam 照旧；
+  51 反而更糟：900 秒 `counts=[1292,990,1]`，环内 7 发全是 `ns=1 sub=4`（`xpcproxy` 被反复杀）
+- **抬 owned 不需要重编内核**：`umi_adt.py:213-216` 的闸是 `0x10000000 <= owned <= min(0x200000000, dram_size)`
+  且 2 MiB 对齐（越界就 `ValueError`），上游自己的 `probe-*.py` 里 `--owned-memory-size 0x20000000`（512 MiB）
+  是常用值；provenance 记 `owned_memory_bytes` 但构建侧没有消费者
+- **✅ 54/55 单变量 A/B 实测（2026-11-05，两档固定 `UMI_GUEST_RAM_MIB=2048` + `BYPASS=1` + 900s，
+  内核 `qemu-systemos-data-mac64` sha `02b1cd44…`，同种子；屏照 `out/screens/54-owned320.png` /
+  `55-owned512.png`）——闸被这一条打掉，归因结案**：
+
+  | 面 | 54-owned320（对照） | 55-owned512（实验） |
+  |---|---|---|
+  | ADT `darwinboot-memory-size` | 335,544,320 | 536,870,912 |
+  | 活体 `_max_mem`/`_mem_size`/`_gPhysSize` | 320 MiB | 512 MiB |
+  | `_sane_size` | 184 MiB | 376 MiB |
+  | 屏上 `MEM totalMiB` | 320 | **512** |
+  | `vm_page_free_count` vs `_min` | **129 页 < 266 页**（字面缺页） | 626 页 > 507 页 |
+  | `available` vs `critical` | 17 MiB vs 16 MiB（`level=5%`） | 69 MiB vs 51 MiB（`level=13%`） |
+  | `_vm_page_wire_count` | 290 MiB / 320 MiB = **91%** | 351 MiB / 512 MiB = 69% |
+  | `counts(总,非0,崩)` | `[667,376,0]` | `[191,36,30]` |
+  | 环内 JETSAM | **7/7**（含 `SpringBoard p411`、`logd`、`rapportd`、`distnoted`） | **0** |
+  | `native_ram_block(读,写)` | 145 / 257 | **1322 / 1173** |
+
+  55 屏上 `SpringBoard p144`、`lsd p105`、`backboardd p57`、`runningboardd p25`、`launchd p1` 全活着
+  （49 档 `lsd` 还 absent），`EXIT 191 nonzero35 crash30 drop1`
+- **为什么 320 MiB 一定不够**：prelink 内核 + dyld shared cache + 三个 APFS 窗全是 **wired**，
+  `wire=290 MiB` 吃掉池子的 91%，`free` 直接掉到 `free_min` 以下——`sub=4` 就是这条的字面输出
+- 🔴 **下一闸（55 档新露出来的，`ns=2 sub=5` = `OS_REASON_SIGNAL` / signal 5 = SIGTRAP）**：
+  `failed_process_exits` = `liveactivitiesd p156`、`liveactivitiesd p160`（同形 `PC=0x1d46a4f8 LR=0x1d46a4cc`）、
+  `SpringBoard p144`（`PC=0xbc44725e LR=0xbc43972e`）；屏上 `STACK 2/2` 三发同带滑移 `+1d0b8000`，`crash=30`。
+  取证通路还差一件：判读件目前只解 `recent[4]`/`failures[3]`，`_exit_records` 的 `crash[3]×400`（偏移 852）
+  与 `reason[330]`（偏移 2052）没解——把 EL0 `PC` 按各件加载窗映回具体指令才知道是断言、`__builtin_trap` 还是缺符号
+- `tools-wsl/evaluate-jetsam-ram-ab.py` — 判读件：四处几何并排 + `available<=critical` 与三条门槛
+  （base/idle/pressure）+ 页仪表 + 环内记录按 exit reason 归类；`--kernel` 指判读用的档名。
+  环形缓冲深度是硬限制（`recent[4]`/`failures[3]` 只留最近几发，总量看 `process_exit_counts`）
+
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
 - `tools-wsl/collect-phone.sh` / `analyse-phone-capture.py` — 采集与判读
@@ -479,6 +534,15 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   **U 步之七整步结案**：闸的性质已从内核变成用户态服务——新露出来的四条（`configd`/`fseventsd`/
   `containermanagerd_system` 被 SIGKILL、`watchdogd` 三发 SIGTRAP、`OS display service not connected`、
   开机期限已过）都在 `out/screens/49-data-mac-var.png` 上，详见 U 步之七末段
+- ✅ **U 步之八（jetsam 击杀归因结案，2026-11-05）**：49 档那三条同形 `ns=1 sub=4`（SIGKILL）判到本体——
+  `JETSAM_REASON_MEMORY_VMPAGESHORTAGE`，触发判据 `available <= critical`，门槛按 **`max_mem`** 算。
+  **客存这条被 50/51 实测否掉**（`dram-size`/`-m` 抬到 2 GiB，`darwinboot-memory-size` 仍 320 MiB，jetsam 照旧）；
+  **owned-memory 单变量 A/B（54=320 / 55=512，其余全同）当场打掉这道闸**：55 环内 JETSAM **7 → 0**、
+  `free 129<min 266` → `626>507`、`available 17 MiB` → `69 MiB`、`counts [667,376,0]` → `[191,36,30]`、
+  `native_ram_block_writes 257 → 1173`，屏上 `MEM totalMiB=512` 且 `SpringBoard p144`/`lsd p105`/`backboardd p57` 全活。
+  真因是 wired 吃掉池子 91%（290/320 MiB：prelink 内核 + dyld cache + 三个 APFS 窗都是 wired）。
+  **下一闸换成 `ns=2 sub=5`（SIGTRAP）三发**：`liveactivitiesd p156/p160`（同形 `PC=0x1d46a4f8`）+
+  `SpringBoard p144`（`PC=0xbc44725e`），`crash=30`——要拿 `crash[3]×400`/`reason[330]` 段才能映回指令，详见 U 步之八
 - ℹ️ **Mac VM：现在是硬需求，别删**（本轮校准）。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm`、官方 trustcache 资格化，
   但**可写 Data 种子只能由 macOS 的 `hdiutil`/`diskutil` 造**（`newfs_apfs` 才会写 checkpoint 描述符区），
   上游自己也只在 `hvf`（macOS）上资格化过这条路。**两趟都已实测**：空卷过「驱动认容器 + rw 挂 `/private/var`」，
