@@ -267,6 +267,57 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   上一轮「全零」是因为仪表根本没启动，不是没人退出——所以 `tzinit` 那条退出原因现在**有通路可拿了**：
   本档停在 monitor 第 8 圈（≈8 秒）而 tzinit 在十几秒后才退，把停点往后挪（或加深跑）就能读到 reason 面
 
+### U 步之七：Data 种子（可写 `/private/var`）——Linux 侧判死，必须 Mac 造
+- `tools-wsl/make-umi-data-seed-linux.sh [logical MiB]` — 纯 Linux 造种子：`mkapfs -L Data -U <容器 UUID> -u <卷 UUID>`
+  → `packed_ramdisk.pack()` → 身份 `.json` 带 `volume_uuid`，三段自检正好对上 `build_umi_xnu.py:92-95` 的三条闸。**造出来的容器原版驱动不认**（见下）
+- `tools-wsl/run-kernel-systemos-data.sh` — 在 `--pmgr` 档之上加 `--data-ramdisk <dbr> --data-seed-json <json>`；
+  `XNU_OWNER_DATA_VOLUME_UUID` 是**编译期**钉进 `tree/build/xnu/owner-data-volume.h` 的，所以换种子必须重编内核
+- `tools-wsl/run-data-qemu.sh` / `evaluate-data-registry-evidence.py` — 取证与判读，看 `_native_owner_data_status/stage/readonly/device` 四元组
+- `tools-wsl/make-run-umi-qemu-registry-log.py` / `-registry-budget.py` / `make-run-umi-qemu-cstring-log.py`
+  — 给 `run_umi_qemu.py` 的观测件加装「IORegistry 字符串面 + 读址预算」，用来回答「种子容器有没有被注册成卷」
+- **stage 阶梯语义**（`native_owner_data_prepare()`，在 `bsd/kern/kern_exec.c`，来自 `zzzzzzzzzzzzzz-umi-persistent-data-userspace.patch`）：
+  `0` 无介质 / `1` 按卷 UUID 找不到种子 / `2` 已 `mount("apfs","/private/var",flags=0)` 但被驱动拒 / `3` `vnode_lookup` / `4` 成功；
+  `2` 直接在 `kern_exec.c:7514` `panic("offline scratch Data mount failed: %d", data_error)`
+- **ENOENT 归因结案（Path B）**：出错生产者 = `0xfffffff00573aa8c mov w25,#0x2`，停在此处 `x8=0x40=64`
+  = 从 `[x19,#0x68]` 读的 `nx_cksum_count`。所以是**「N 枚 checkpoint 描述符全部校验失败」**，不是「计数为 0」。
+  同一条 per-container 读址 `0x5739e04` 在一次开机里命中三次，`x8` 分别 `36`（cryptex）/ `56`（真 Apple OS 容器）/ `64`（我们的种子）
+- **真因**：`mkapfs`（apfsprogs）**压根不写 checkpoint 描述符区**。同一把尺子（全镜像扫 APFS 块魔数，`out/probes/u336.txt`）：
+  我们 512 MiB 种子里 `NXSB` 只命中 **2** 处（块 0 + 块 2 备份），真 Apple 容器 `apfs.bin` 光「前 64 MiB + 后 64 MiB」就 **45** 处
+  （`0x20,0x2020,0x4020,…`）。原版 `nx_mount` 要至少一枚过 xid+对象校验和的 checkpoint，全失败 → ENOENT
+  → 容器对象被 `setStatus` 钉成 `Status='Offline'`，**种子卷 UUID 从不进 IORegistry**
+- **Linux 三条替代路全断（本轮实测）**：①`apfs-dkms`（`linux-apfs-rw 0.3.2-0ubuntu6.2`，dkms 里已 `added`）编不出来——
+  WSL2 的 `linux-headers-6.18.54.1-microsoft-standard-WSL2` 是**空壳**（无 `Makefile` 无 `.config`），
+  `make -C /lib/modules/$(uname -r)/build M=… modules` 报 `No targets specified and no makefile found`，
+  `dkms build` 报 `kernel package … is not supported`，产不出 `apfs.ko`（u351/u352/u353）；
+  ②`apfsprogs` 只有 `mkapfs/apfsck/apfs-snap`，**没有任何往 APFS 写文件的工具**（`apfsck` 连 `-n` 都没有，只认 `-cuvw`）；
+  ③本树内核的文件系统名串只有 `apfs/devfs/mockfs/msdos`（u349），`bsd/hfs` 不存在、`hfsprogs` 未装，
+  而 `/private/var` 要 symlink + owner，FAT 顶不了
+- **「干净卸载标志」支路判死**：那个 u8 是 `[x0,#0x131]`，唯一生产者 `0xfffffff0056bcd24 strb w8,[x0,#0x131]`，
+  来源 `ldp w8,w9,[x1,#0x38]` → `0x130`=`(x1+0x38)!=0`、`0x131`=`(x1+0x3c)!=0`（记录步长 `add x0,x0,#0x150` = 336 B）。
+  `nx_mount` 的 `0x573aa54 cbnz w8,0x573a870` 确实是「干净就容忍描述符不符」，**但容忍只解决挂载**——
+  可写 Data 还需要真 checkpoint/事务空间，伪造一枚等于重写 `newfs_apfs` 的 checkpoint writer。
+  而且 `x1` 的盘上出处要靠函数 `0x56bcc8c` 的调用方定，全段找不到 `bl 0x56bcc8c`（u354），
+  只剩活体寄存器间接读这一条口，本机观测件没有它（u348）
+- **上游的权威口径（别再自己猜）**：`scripts/check-native-ram-data-checkpoints.py` 要 `qemu_accelerator == 'hvf'`（= macOS），
+  要的正是 `build/owner-data-fixture/owner-data-32.cdr`（`33,554,432 B` + `sha256` 钉值），且要求挂载**可写**
+  （`status=0 stage=4 readonly=0 device=0x1000002`、`_native_ram_block_reads == 517` / `_writes == 1509`）。
+  同一枚种子在 `check-scratch-data-checkpoints.py` 里被**断言成 ENOENT**，那是 md0 对照档、不是判死。
+  产它的是 Mac 件 `prepare-owner-data-fixture.py`：`hdiutil create -size 32m -layout NONE -fs APFS -volname OwnerData -type UDTO`
+  → 拷 `private/var`（去掉 `staged_system_apps`、保 symlink）→ 补 `keybags/mobile/tmp/tmp/run` + `chmod 1777 tmp`
+  → `diskutil info -plist` 取 `VolumeUUID` 写 `seed.json`。**这枚 .cdr 从没进过 git、无下载地址、无 LFS**（u350）；
+  `docs/building.md:120` 原话「the Data seed steps call `hdiutil` and `diskutil`. A fork can run them on a GitHub macOS runner without a local Mac.」
+- **结论**：Data 种子上 Mac 造。Linux 侧只做 `packed_ramdisk.pack()` + `volume_uuid` 钉值 + 重编/prelink/取证，这条链本机已经跑通
+- **Mac↔Linux 交接两件（本轮新增，自测过 `out/probes/u357.txt`/`u358.txt`）**：
+  - `tools-mac/make-owner-data-seed-mac.sh [--out DIR] [--size 32m] [--volname Data] [--from-var DIR]` —
+    在 Mac 上跑：`hdiutil create -layout NONE -fs APFS -type UDTO` → `ditto` 拷 `private/var`（去 `staged_system_apps`）
+    → 补 `keybags/mobile/tmp/tmp/run` + `chmod 1777 tmp` → `diskutil info -plist` 取 `VolumeUUID`
+    → detach 后硬闸「大小 + 块 0 的 `0x20` 是 `NXSB`」→ 随行产 `seed.json`（`volume_uuid`/`bytes`/`sha256`）。
+    `--from-var` 不给就是**空卷**——先拿空卷过挂载这一格，别一上来就跑全三件上游 Mac 脚本
+  - `tools-wsl/pack-umi-data-seed-mac.sh <owner-data-*.cdr> [--name 档名]` — 回 Linux 后：缺 `seed.json` 直接停手（实测 rc=1、不留半成品）
+    → `packed_ramdisk.pack()` + 身份 `.json`（`volume_uuid` 从 `seed.json` 取、大写归一）→ 按 `build_umi_xnu.py:92-95/:150`
+    的三条闸自检 → 打印「把 `.json` 里的 `volume_uuid` 交给 `run-kernel-systemos-data.sh` 重编内核」
+  - 语法/行为自测：`.json` 与既有 `data-512.json` 键集逐键一致；两件均 LF（`*.sh text eol=lf` 已覆盖 `tools-mac/`）
+
 ### 真机（小米 10）
 - `tools-win/fastboot-boot.cmd` — Windows 一键：选本地镜像 → 重启到 fastboot → `fastboot boot`（零写入）→ 1 分钟无设备自动回菜单
 - `tools-wsl/collect-phone.sh` / `analyse-phone-capture.py` — 采集与判读
@@ -349,8 +400,19 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   `Proc ss exits: total=2 no zero-status-or-reason=0`；而 `45` 停在 monitor 第 8 圈（≈8 秒），
   `tzinit` 是十几秒后才退的，所以**把停点放宽（深跑 + `boot-progress=2`）就能拿到它的 reason 面**。
   诊断页还另给了一条新线索：`SpringBoard: absent from this process pass`（UI 层进程压根没被派生）
-- ℹ️ Mac VM：本轮不用、也别删。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm` 与官方 trustcache 资格化；
-  唯一残留缺口是「往 APFS 卷写文件」（`apfsprogs` 无写文件工具，`apfs-dkms` 已装未编，本树 `bsd/miscfs/` 无 APFS 驱动）
+- ✅ **U 步之七（Data 种子归因结案，2026-11-05）**：`offline scratch Data mount failed: 2` 的 ENOENT 已归到
+  原版 APFS 驱动 `nx_mount` 的 checkpoint 描述符校验——**`mkapfs` 造的容器压根没有描述符区**（种子全镜像 `NXSB`
+  仅 2 处 vs 真 Apple 容器 45 处），64 枚槽全失败；`/private/var` 不可写就是 `tzinit` 那道闸的根。
+  Linux 三条替代路（`apfs-dkms` 编不出 / `apfsprogs` 无写件 / 内核无 hfs）实测全断，
+  **「干净卸载标志」支路**即使补上也只解决挂载、解决不了可写事务 → **判死，Data 种子上 Mac**（详见 U 步之七）
+- ✅ **U 步之七之二（Mac↔Linux 交接件落地并自测，2026-11-05）**：`tools-mac/make-owner-data-seed-mac.sh`（Mac 造 `.cdr` + 随行 `seed.json`）
+  → `tools-wsl/pack-umi-data-seed-mac.sh`（Linux 打包 + 按 build 侧三条闸自检）。真跑一遍产出的 `.json` 与既有 `data-512.json`
+  逐键一致；缺 `seed.json` 时 rc=1 且不留半成品（`out/probes/u357.txt`、`u358.txt`）
+- ℹ️ **Mac VM：现在是硬需求，别删**（本轮校准）。Linux 侧已顶掉 AEA 解密、`dwarfdump/nm`、官方 trustcache 资格化，
+  但**可写 Data 种子只能由 macOS 的 `hdiutil`/`diskutil` 造**（`newfs_apfs` 才会写 checkpoint 描述符区），
+  上游自己也只在 `hvf`（macOS）上资格化过这条路。**第一趟只要空卷**（`--from-var` 不给）——
+  空卷也能过「驱动认容器 + rw 挂 `/private/var`」这一格；要初始树再把本机解密的 OS `.cdr` 挂进 VM 拷 `private/var`
+
 
 ## 硬约束（用户原话级，不要重新征询）
 
@@ -365,7 +427,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 
 ## 别碰 / 别信
 
-- `tools-wsl/attic/` — 613 份一次性探针归档，别引用、别当入口；顶层只剩 99 个规范脚本（外加 2 份 `umi_*_tail.c`）
+- `tools-wsl/attic/` — 614 份一次性探针归档，别引用、别当入口；顶层 127 项规范脚本（外加 2 份 `umi_*_tail.c`）
 - `/usr/local/bin` 里除 `sync-helpers.sh` 白名单那 7 个之外的命令 — 都是早年全量快照的历史残留，改仓库脚本不会生效；要清就跑 `reboot-restore.sh --prune`
 - `unixnu-logs/latest.txt` 指向的是 11-02 的失败 bootstrap 日志；最近内核构建看 `kernel-walk-latest.txt`
 - `tNN-` / `sNN-` / `run-NN` 这类序号名脚本是归档命名，新脚本用「步名-语义名」（如 `make-amfi-guard-patch.py`）
@@ -420,3 +482,16 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
 - **`build-boot-progress.py:53/142` 直接点名 `/opt/homebrew/opt/llvm/bin/llvm-objdump`**（没有 env 覆盖口），
   本机根本没有 `/opt` 那棵树 → `sync-helpers.sh` 里给它装了个指向 `/usr/bin/llvm-objdump`（LLVM 18.1.3）的
   symlink shim。装之前实测过那四条大小写敏感的指令断言本机 objdump 全认（u186）
+- **APFS 盘上块 0 的偏移（本轮实测，两个容器都对得上）**：`NXSB` 魔数在 `+0x20`、blocksize（4096）在 `+0x24`、
+  容器 UUID 在 `+0x48..0x57`、**`nx_cksum_count`（checkpoint 描述符枚数）在 `+0x68`**。
+  `mkapfs` 给 64、真 Apple 容器给 56、cryptex 给 36。别把它和内存里 `nx_mount` 读的 `[x19,#0x68]` 混为一谈
+  （数值同源、语义一个盘上一个结构体）
+- **判「种子容器合不合法」最便宜的一把尺子是扫块魔数**：全镜像按 4096 对齐找 `NXSB` 出现次数。
+  Apple 格式化的容器每两块就有一枚 checkpoint 超块拷贝（`apfs.bin` 光 128 MiB 窗口就 45 处），
+  `mkapfs` 造的只有 2 处（块 0 + 块 2 备份）→ 描述符区是空的，原版驱动必然拒（`out/probes/u336.txt`）
+- **WSL2 的内核头是个空壳**：`/usr/src/linux-headers-6.18.54.1-microsoft-standard-WSL2` 里既无 `Makefile` 也无 `.config`，
+  所以**任何 DKMS 外部模块（`apfs-dkms` 等）在这台机器上都编不出来**——`make -C /lib/modules/$(uname -r)/build M=… modules`
+  报 `No targets specified and no makefile found`，`dkms build` 报 `kernel package … is not supported`（u351~u353）。
+  要 Linux 侧内核模块就得先换标准 Ubuntu 内核镜像，别在 WSL2 定制内核上耗
+- **`apfsck`（apfsprogs）没有 `-n`**，只认 `-cuvw`；`apfsprogs` 全套也没有任何往 APFS 写文件的可写通路。
+  想「Linux 造出 Apple 认的容器」前先想清这条，别拿 `mkapfs` 的输出当格式等价物
