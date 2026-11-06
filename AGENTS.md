@@ -547,6 +547,59 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   （`immhi` 取 `(w>>5)&0x7FFFF` 共 19 位、左移 2 再拼 `immlo`）。u463/u543 那批解码把多余的位吃进了立即数，
   **实测每条岛终点都恰好高 `0x100000000`**——所以「岛高于 cache 上界」从来不是事实，是算术错
 
+### U 步之十二：CADisplay 枚举归因结案——nil 的生产者是用户件里的静态显示表，枚数只有三条写指令
+- **整条链已逐环钉到指令**（`out/probes/u560.txt`..`u565.txt`，纯 Linux 离线读 SystemOS 窗）：
+  `-[FBSDisplayMonitor _initWithBookendObserver:transformer:]`（imp `0x19f3dee70`）→ `getCADisplayClass()`
+  → `[CLS displays]`（QuartzCore `0x18952b9e4`）→ `-[CAWindowServer displays]`（`0x18959c4f4`，
+  由 `-[CAWindowServer _detectDisplays]` `0x189697728` 喂）→ **IOMobileFramebuffer 用户件导出 `0x1b63d0c48`**：
+  `ldr w2,[x8,#184]`（枚数）→ `cbz w2,#32` → `mov x0,#0; ret`；非零才
+  `add x1,x1,#192`（=`0x1f4c500c0`）`mov x3,#0` → `CFArrayCreate`。空数组 → `[arr firstObject]` = nil
+  → ivar `_mainDisplay`@0x10 → `cbz` → `brk #0` @`0x19f3df2ec`（消息 `@"failed to find the main CADisplay"`）。
+  **所以「枚数==0」就是那发 trap 的唯一上游条件**，与帧缓冲、GPU 无关
+- **静态表几何（唯一出处 u559/u562；`[x23,#184]` 的 184 = 0xB8 = 枚数偏移）**：
+  枚数 u32 `0x1f4c500b8` / 指针数组 `0x1f4c500c0`（`str x27,[x26, x8, lsl #3]`）/
+  记录区 `0x1f4c4f6b8`、**步长 160**（`mov w28,#160`）、**硬上限 16**（`cmp w19,#15 / b.hi`、`cmp w19,#16 / b.lo` 回到循环）/
+  服务句柄缓存 `0x1f4c50140`（`[x19,#320]`）/ 两枚计数 `0x1f4c4f698`、`0x1f4c4f6ac` + u8 一次性位 `0x1f4c4f6a0`
+- **枚数的写指令全件只有三条**：`0x1b63dad04`（F1 本体）、`0x1b63db0b4`、`0x1b63db178`（F2 的两个追加块）。
+  其余碰 `#184` 的 12 处全是读。`0x1b63d0c60` 那处读就是上面那个导出
+- **F1/F2 的身份由件自己的 ASL 串钉死（u565 §2）**：F1 = `0x1b63daab8..0x1b63dae70` 是线程本体
+  `iomfb_populate_thread`（`__cstring+0x696`=`0x1b63dd696`），函数名串 `iomfb_populate_matched_displays`
+  在 `0x1b63dd838`。它先 `ldr w8,[x23,#184]` 判枚数：`cbz → 0x1b63dabe8` 走「句柄缓存」路
+  （`[x19,#320]` 为空则 `bl IOKit+0x1f05c` 取句柄），非零才 `asl_log("%s: Local call t…")` 并**直调 F2**
+  （`0x1b63dab68 bl 0x1b63dae70`）。F2 = `"IOServiceFirstMatch"` 通知回调：那枚串在 `0x1b63dd7ee`、
+  由 **F1 内 `0x1b63dac28`** 装上，随后 `0x1b63dac3c/0x1b63dac48` 调 IOKit `+0x1e90c`（82 条）/`+0x2dc94`（29 条）；
+  F2 序言 `str w1,[sp,#44]` 收 `io_iterator_t`，循环体 `ldr w0,[sp,#44]; bl IOKit+0x17bb0; cbz w0,#832`
+  = `IOIteratorNext` 抽干，每枚服务读 `dfr`/`AppleTV`/`external`，追加时把 **1536 B** 的 struct-out
+  写进 `record+24`（`add x1,x8,#24; mov w2,#1536`）
+- **F4（`0x1b63d0c48`）在用户件 __text 里 0 个直调者**（u565 §1：12405 条全扫，四枚靶的直调边总共 1 条，
+  就是 F1→F2 那条）→ 它只能被 **QuartzCore 跨件**经导出打到。以后别再在 IOMobileFramebuffer 里找「谁调提供者」
+- **内核侧反转一条误判（u565b/u565c）**：`native_legacy_display_allocate()` 的真身是
+  `UniXNU-main/drivers/GopFramebuffer/NativeLegacyDisplay.cpp:868` 的 `new NativeLegacyDisplay`
+  （`:151 class NativeLegacyDisplay : public IOMobileFramebufferLegacy`、`:866 OSDefineMetaClassAndStructors(...)`）
+  ⇒ `IOClass` 串是 `NativeLegacyDisplay`，`IOMobileFramebuffer` 在**父类链**上（`metaCast` 三重判定为真与此一致）。
+  且 `:488-495` **覆写了 `registerService()`**，收尾 `IOService::registerService(options); native_legacy_registration_observed(this);`
+  ⇒ **`registration_calls=1` 就是「真进过匹配命名空间」的硬证据**，「probe 没注册所以匹配不到」那句作废
+  （对照：设备树里 `registerService` 只 3 处——`UmiPlatformPower.cpp:150/151` 用 `kIOServiceSynchronous`
+  并自己拿 `serviceMatching("ApplePMGRNub")`+`waitForMatchingService` 自证，`NativeRamBlock.cpp:246`）
+- `client_calls` 的生产者是 `LegacyDisplayProbe.cpp` 的 `native_legacy_client_enter(task,type)`（:207-209，
+  pid 走 `proc_pid(get_bsdtask_info(task))`）⇒ `client_calls=4 pid=73` 是真有用户任务开上过 user client
+- **闸的性质最终收窄成两选一**，静态到此为止：
+  (A) 匹配命中但**属性面不够**——F2 每枚服务要读 `dfr`/`AppleTV`/`external`，全树 0 处生产（u563 §5）→ 读出空就不追加；
+  (B) populate 线程/通知回调**没跑起来**（线程创建晚于查询、或该进程 runloop 没抽通知端口）。
+  **判别口已经存在且便宜**：`native_legacy_registration_observed()`（`LegacyDisplayProbe.cpp:48-56`）在注册那一刻
+  已经把服务的属性 **序列化成 XML** 存进 `native_legacy_properties`；现在读址集只挂了
+  `_native_legacy_properties_length:4`（`evaluate-legacy-display-gate.py:67`），缓冲本体没挂——
+  挂上它，gate 停点 20-40 秒就能看到注册时服务对外可见的全部属性名，与 F2 要的那三枚一比即知是 A 还是 B
+- 本轮踩过的坑（都烧过时间）：
+  ① **文件偏移必须走映射表**（`a2f()`/`vr()`）。`SYS_OFF + (vm - 0x180000000)` 这条捷径在 `0x1b63dxxxx`
+  区间读到的是 ASCII 源码串，llvm-mc 当场 `invalid instruction encoding`（u562 第一版就是这么废的）；
+  ② 全段找 `bl`/`b` 别逐条喂 llvm-mc，纯 python 用 `(w&0xFC000000)==0x94000000`（bl）/`==0x14000000`（b）
+  + `sxt(w&0x3FFFFFF,26)*4` 一遍 12405 条毫秒级；
+  ③ `pick()` 不能套在 u32 计数器上（会被当小整数丢掉），32 位 `add w8,w8,#1` 不在共享 `decode()` 里——
+  认 `str w8,[x23,#184]` 这类必须走 llvm-mc；
+  ④ `_u559_body.py` 的 `BLK_HI` 曾多写一位（`0x1F4C500400`），旧档 `u559.txt` 因此多 6 行假值（★ 标过的行仍准）；
+  ⑤ 又把 `wsl.exe bash -lc` 里内联带 `$U` 的复合命令写了一次 → 引号被吞、三段全空输出，AGENTS 早就写过「一律落脚本文件」
+
 ### V 步：上游站点、收录与设备页（口径已核对到源码，别再靠 WebFetch 猜）
 
 `unixnu.com` 的**源就在 `UniXNU-main/docs/`**（VitePress，双语：`docs/` = en、`docs/zh/` = zh）。
@@ -774,6 +827,22 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   顺带**推翻一条旧判死**：u463/u543 那批「跳板岛终点比 cache vm 上界高 1.2~2.0 GB，不属于这份 cache」是
   **adrp 立即数解码错**（每条恰好高 `0x100000000`），按 21 位符号扩展重解后六枚岛终点**全落进映射**；
   仍判死的只剩 LC_SYMTAB 符号池基准未定那一条。取证 `out/probes/u545.txt`/`u547.txt`/`u548.txt`/`u549.txt`
+- ✅ **U 步之十二（CADisplay 枚举归因结案，2026-11-06）**：nil 的生产者钉到了最里层——QuartzCore 的
+  `[CAWindowServer displays]` 数据源 = **IOMobileFramebuffer 用户件里的静态显示表**
+  （枚数 u32 `0x1f4c500b8`、指针数组 `0x1f4c500c0`、记录区 `0x1f4c4f6b8` 步长 160 上限 16、句柄缓存 `0x1f4c50140`）。
+  导出 `0x1b63d0c48` 只做「枚数==0 就 `mov x0,#0; ret`」，非零才 `CFArrayCreate`；
+  **枚数的写指令全件只有三条**（`0x1b63dad04` / `0x1b63db0b4` / `0x1b63db178`），
+  生产者是 F1 = `iomfb_populate_thread` 线程本体（件内 ASL 串自证，名字 `iomfb_populate_matched_displays`）
+  和它 armed 的 `"IOServiceFirstMatch"` 回调 F2（`IOIteratorNext` 抽干，每枚服务读 `dfr`/`AppleTV`/`external`）。
+  F4 提供者**在用户件里 0 个直调者**（跨件经导出到达）。内核侧**反转一条误判**：
+  `native_legacy_display_allocate = new NativeLegacyDisplay`（`UniXNU-main/drivers/GopFramebuffer/NativeLegacyDisplay.cpp:868`，
+  `OSDefineMetaClassAndStructors(NativeLegacyDisplay, IOMobileFramebufferLegacy)`），且 `:488-495` **覆写了 `registerService()`**
+  并在此刻 `++registration_calls` ⇒ 56/59 档那个 `registration_calls=1` 就是「真进过匹配命名空间」的硬证据，
+  「probe 没注册所以匹配不到」作废。闸因此收窄成两选一：**(A) 属性面不够 / (B) populate 线程与通知回调没跑起来**，
+  静态已判不动，**判别口 = 把 `native_legacy_properties` 缓冲本体挂进取证读址集**（`LegacyDisplayProbe.cpp:48-56`
+  在注册那一刻已把属性序列化成 XML 存进去了，现在只挂了 `_length:4`），gate 停点 20-40 秒即可分辨 A/B。
+  取证 `out/probes/u560.txt`..`u565.txt`（含 `u565b`/`u565c`）；坑见 U 步之十二末段（映射偏移、bl 纯 python 扫、
+  `pick()` 不吃 u32、内联 WSL 引号）
 - ℹ️ **V 步口径已核对（2026-11-05）**：上游八步里我们 **1–5 全过、6 部分、7 host 全链过 + 真机只到菜单、8 未做**；
   **umi 页在上游站上已存在**（钉 `reAAAq/UniXNU-umi@3eb7257`，本地那棵树的头，`format=1` 手写 preserve 页，
   报的是**另一台 12 GiB** 到 Hello/Setup+touch）。要在设备页展示我们的项目 = 两条闸（`board.toml` 要有 `[components]`、
