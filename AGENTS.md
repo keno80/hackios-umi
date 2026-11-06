@@ -429,7 +429,7 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   （base/idle/pressure）+ 页仪表 + 环内记录按 exit reason 归类；`--kernel` 指判读用的档名。
   环形缓冲深度是硬限制（`recent[4]`/`failures[3]` 只留最近几发，总量看 `process_exit_counts`）
 
-### U 步之八之二：55 档三发 SIGTRAP 的指令级归因（静态反解到此为止，别再来一趟）
+### U 步之八之二：55 档三发 SIGTRAP 的指令级归因（当轮判死的「静态反解到此为止」已被 U 步之十一推翻一半）
 - **崩溃环才是 trap 级证据**：`_exit_records` 的 `crash[3]×400`@852，每行形状
   `p<pid> <name> sig<N> PC<hex> LR<hex> E<esr> F<far> +<slide> bt<帧表>`。布局唯一出处 =
   `devices/umi/package/boot-progress/BootProgressLifecycle.h:6` 的 `struct bp_exits`
@@ -454,12 +454,12 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   从段首顺序走 + 「≥80% 条目 types 落全局 `__objc_methtype` 串头」筛假列表；**name 基准 = 全 cache 共用锚址
   `B=0x181d6b32c`（libobjc.A.dylib `__OBJC_RO` 段首 +4）**，types/imp 基准 = 字段自身址；类名 = `__objc_const` 里
   那枚 methlist 指针的**前一个 u64**，`RO_META_CLASS=1<<6` 定 `+`/`-` 前缀
-- 🔴 **静态路线判死，别再试这两条**（u463/u464）：①整枚 `userdata-root.img`（9,382,658,048 B）只有 51 枚页对齐
-  `dyld_v1   arm64\0` 头、57 条映射，**vm 上界 `0x234494000`**，件表 3354 件里 Foundation/CoreFoundation/
-  libswiftCore/UIKitCore/CFNetwork/libdispatch/SwiftUI **全在**——而 trap 前那些跳板岛的终点在
-  `0x2800e9b64 / 0x2800edc88 / 0x2800f1cec / 0x28159f690 / 0x28f75c6bc / 0x2b51aa4dc`，比上界还高 1.2~2.0 GB，
-  **不属于这份 cache**；②LC_SYMTAB 的 `stroff/strsize` 对所有件同值（`0x14b385e0` / 56,750,964），但「文件首+off」
-  「vm 基+off」两种基准前 32 枚 nlist 全不可读，已知符号串在 3.3 GB 窗内 needle 0 命中 ⇒ 符号池基准未定
+- ⚠️ **「跳板岛不属于这份 cache」那句作废**（u548 实测，2026-11-06）：那六枚终点是**同一个 adrp 解码 bug**
+  抬上去的——旧值恰比真值高 `0x100000000`（`0x2_800f1cec` vs 真 `0x1_800f1cec`）。按 21 位符号扩展重解后
+  **六枚全落进映射**：`0x19fcd7f04→0x18f75c6bc`（映射 `0x18da98000`）、`0x19fcd815c→0x1800f1cec`、
+  `0x19fcd82e8→0x1800edc88`（映射 `0x180074000`）、`0x19fcd8474→0x1a0705df4`（映射 `0x19fce4000`）。
+  **仍判死的只剩一条**：LC_SYMTAB 的 `stroff/strsize` 对所有件同值（`0x14b385e0` / 56,750,964），
+  「文件首+off」「vm 基+off」两种基准前 32 枚 nlist 全不可读 ⇒ 符号池基准未定（u464）
 - 指令判据（这轮错过一次，掩码别再抄错）：`adrp` `(w&0x9F000000)==0x90000000` 且对 `((immhi<<2)|immlo)` 做 **21 位**
   符号扩展；`add imm12` `(w&0xFFC00000)==0x91000000`（bit22=sh12）；`ldr`（unsigned offset 64 位）
   `(w&0xFFC00000)==0xF9400000` 且**立即数 = imm12×8**；`br/blr/ret` `(w&0xFFFFFC1F) ∈ {0xD61F0000,0xD63F0000,0xD65F0000}`
@@ -514,6 +514,38 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   监考面板 `LANE_COUNT = 6`（数据层与 Web 层两处都要改，只画 4 条会把「并发没吃满」误报成现场）
 
 
+
+### U 步之十一：SpringBoard 那发 brk 归因到具体错误条件（结案）
+- **两把钥匙开掉了「静态反解读不出数据区」这扇门**（`out/probes/u545.txt`、`u547.txt`，纯 Linux 离线读
+  `userdata-root.img` 的 SystemOS 窗 `SYS_OFF=6079643648 / SYS_SIZE=3303014400`）：
+  1. **rw 区（映射 `vm=0x1e638c000 size=0x531c000 mx=3`）里的 u64 是 dyld 链式修复编码，低 34 位才是真 vm**
+     （`0x4019F453ECC → 0x19F453ECC`）。之前「读回来是指针样原始值」全部卡在这；
+  2. 引用的确是 `__DATA_CONST` 里的 **CFString** `{isa, info, data, length}`——判据是**长度字段与解出的 ASCII
+     逐字节相等**，5 枚全中（`0x21=33`/`0x27=39`/`0x39=57`/`0x1b=27`/`0x24=36`），不是猜的
+- **实测 PC `0x19f3df2ec` 那条 brk 的具体错误条件 = `@"failed to find the main CADisplay"`**，
+  trap 块（同一条基本块，逐条见 `out/probes/u547.txt` 453-490 行）：
+  `ldr x0,[0x1e7abe540]` → `add x2,#0xf68`（=`0x1e7a9bf68` 那枚 CFString）→ `bl 0x19f4775e0`
+  （件内桩，selref 解出 **`stringWithFormat:`**）→ … → `bl 0x19f46e740`（selref **`UTF8String`**）
+  → `bl 0x19fcd7f04` → `brk #0`。**`PC-4` 正是那发 `bl`，所以「实测 LR == 实测 PC」是这条 bl 的返回址**，
+  不是硬件把 PC 抄进 LR——崩溃记录里那个看似矛盾的等号当场有了来路
+- **窗口内 6 对 brk 站点（12 处），其中 5 对带上了消息**（`out/probes/u547.txt` 第 2 节）：
+  `0x19f3dee68/6c`←`Invalid condition not satisfying: %@`、`df1e0/e4`←`two CADisplays had the same displayID(%u) -> $@`、
+  `df23c/40`←`failed to initialize display source -> display=%@`、`df294/98`←`failed to find the symbol for CADisplay`、
+  **`df2ec/f0`←`failed to find the main CADisplay`（实测这一发）**；`dee04/08` 那对址在 `imp=0x19f3dee70` **之前**，
+  压根不属于这个方法（属于隔壁件），窗口内也没有串；另有 `identifier`（selref）与
+  `untimely configuration call`（`0x1e7a9bce8`，在 u544 窗口内）。**带消息的这 5 对全是「显示源枚举失败」一族**
+- **闸的性质由此收窄**：`-[FBSDisplayMonitor _initWithBookendObserver:transformer:]` 里失败的不是
+  framebuffer（那格 U 步之九已过：`IOMobileFramebufferUserClient` 被真件开上了），而是
+  **CADisplay 这一层**——先「找不到 `CADisplay` 这个符号」，再「找不到 main CADisplay」。
+  所以下一格要问的是 **QuartzCore 的 `CADisplay` 导出与主显示枚举有没有东西可枚举**，不是再动帧缓冲
+- **件与段的认法**：`imp 0x19f3dee70` 与 trap 都只被映射[9]（`vm=0x199130000`，mx=5）包含，
+  数据引用只被映射[34] 包含——**「一条 vm 有几条映射包含」这个自检必须留着**，它是判「文件基址取错」
+  最便宜的一把尺（`out/probes/u545.txt` 第 2/3 节）
+- 取产线（一次性，不进 `tools-wsl/`）：`out/scratch/u545-data-read-check.py`（三种解释一次判掉）、
+  `u547-trap-window.py`（全窗注记 + brk 归属）、`u548-name-the-helper.py`（岛终点重解）、
+  `u549-island-bodies.py`（岛终点本体）。四件共用同一套址解码：**adrp 的立即数只能取 21 位并做符号扩展**
+  （`immhi` 取 `(w>>5)&0x7FFFF` 共 19 位、左移 2 再拼 `immlo`）。u463/u543 那批解码把多余的位吃进了立即数，
+  **实测每条岛终点都恰好高 `0x100000000`**——所以「岛高于 cache 上界」从来不是事实，是算术错
 
 ### V 步：上游站点、收录与设备页（口径已核对到源码，别再靠 WebFetch 猜）
 
@@ -731,6 +763,17 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   sha `3b57e088…`、67,108,864 B、种子里 40 文件
 - ℹ️ **这条通路的真正价值在后面**：同一把 `-imagekey` 能挂任何 Linux 侧 `libfsapfs` 打不开的窗
   （SystemOS cryptex、`userdata-root.img` 那枚 9.38 GB），需要真字节时先在 Mac 上挂起来看，别再去改 `libfsapfs`
+- ✅ **U 步之十一（SpringBoard 那发 brk 归因结案，2026-11-06）**：两把钥匙——**rw 区的 u64 是 dyld 链式修复编码，
+  低 34 位才是真 vm**，且引用的是 `__DATA_CONST` 里的 **CFString**（`length` 字段与解出的 ASCII 逐字节相等，5 枚全中）。
+  于是**实测 PC `0x19f3df2ec` 的具体错误条件 = `@"failed to find the main CADisplay"`**：同一条基本块里
+  `add x2,#0xf68` 装上这枚串 → `bl`（件内桩 selref = `stringWithFormat:`）→ … → `bl`（selref = `UTF8String`）
+  → `bl 0x19fcd7f04` → `brk #0`；**`PC-4` 就是那发 `bl`，所以崩溃记录里「LR == PC」是它的返回址**，不再是个谜。
+  窗口内 6 对 brk 站点有 5 对带上了消息，**全属「显示源枚举失败」一族**（`two CADisplays had the same displayID`、
+  `failed to initialize display source`、`failed to find the symbol for CADisplay`、`failed to find the main CADisplay`…）。
+  **闸的性质由此收窄**：不是帧缓冲（U 步之九已过），是 **QuartzCore `CADisplay` 的导出与主显示枚举**这一层。
+  顺带**推翻一条旧判死**：u463/u543 那批「跳板岛终点比 cache vm 上界高 1.2~2.0 GB，不属于这份 cache」是
+  **adrp 立即数解码错**（每条恰好高 `0x100000000`），按 21 位符号扩展重解后六枚岛终点**全落进映射**；
+  仍判死的只剩 LC_SYMTAB 符号池基准未定那一条。取证 `out/probes/u545.txt`/`u547.txt`/`u548.txt`/`u549.txt`
 - ℹ️ **V 步口径已核对（2026-11-05）**：上游八步里我们 **1–5 全过、6 部分、7 host 全链过 + 真机只到菜单、8 未做**；
   **umi 页在上游站上已存在**（钉 `reAAAq/UniXNU-umi@3eb7257`，本地那棵树的头，`format=1` 手写 preserve 页，
   报的是**另一台 12 GiB** 到 Hello/Setup+touch）。要在设备页展示我们的项目 = 两条闸（`board.toml` 要有 `[components]`、
