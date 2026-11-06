@@ -600,6 +600,56 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   ④ `_u559_body.py` 的 `BLK_HI` 曾多写一位（`0x1F4C500400`），旧档 `u559.txt` 因此多 6 行假值（★ 标过的行仍准）；
   ⑤ 又把 `wsl.exe bash -lc` 里内联带 `$U` 的复合命令写了一次 → 引号被吞、三段全空输出，AGENTS 早就写过「一律落脚本文件」
 
+### U 步之十二之二：(A)/(B) 判别结案——属性面根本不影响枚数，CADisplay 空枚举已在显示档闭合
+- **(A)「属性面不够」被 u567 反汇编当场推翻**（`out/probes/u567.txt`，F2 每服务处理块
+  `0x1b63dae70..0x1b63db2b0`，llvm-mc + 注记两路同读）：三枚属性读
+  = `IORegistryEntrySearchCFProperty(entry,"IOService",key,alloc,0)`（`IOKit+0x17bb0`，
+  vm `0x18ffc0434` / 本体 `0x18ffc0414` / 131 条），三枚 key 的 CFString 由 u568 §3 点名
+  ——`0x1e9117420`="dfr"、`0x1e9117440`="AppleTV"、`0x1e9117460`="external"。
+  **返回空只是清标志位**：`cbz x0,#32 → mov w22,#0`、`cbz x0,#36`（短路不读第三枚）、
+  `cbz x0,#32 → mov w21,#0`；而追加是无条件的——`str w26,[x9,#20]`（句柄）、
+  kind 的 `cmp w22,#0; mov w8,#3; csel w8,w8,w21,ne; str w8,[x25,#8]`、
+  名字（`"dfr"` / `"primary"` / `snprintf("external-%d")`）、
+  **`str w19,[0x1f4c500b8]`（枚数++）** 与 `str x25,[0x1f4c500c0+x8*8]` 全都不看属性。
+  ⇒ 枚数留 0 的**唯一出口**是迭代器抽干：`ldr w0,[sp,#44]; bl IOKit+0x103d4`（IOIteratorNext）
+  `; cbz w0,#832` 跳到收尾块。属性只决定记录取名与 kind 字节
+- **`IOClass` 键缺席是正常，不是闸**：那份属性面在 `gIODTPlane` 上（61 档 11 枚键全是
+  IOMFB Debug Info / power info / height / width 一族），别再按 IORegistry 主面去找它
+- **匹配看的是类名，不是属性**（u568，`out/probes/u568.txt`：F1 = `iomfb_populate_thread`）：
+  `bl IOKit+0x1f05c` 取句柄 → `str x0,[x19,#0x140]`（=`0x1f4c50140`）→ `cbz` 回重试；
+  `IOServiceMatching("IOMobileFramebuffer")`（`bl IOKit+0xfb50`，类名串 `0x1b63dcc94`）；
+  `IOServiceAddMatchingNotification(handle,"IOServiceFirstMatch",dict,F2=0x1b63dae70,0,&result)`
+  （`bl IOKit+0x1e90c`，串 `0x1b63dd7ee`）——**任一步失败一律回到 `0x1b63dab34` 重试**，
+  所以「通知没交付」在现场是静默无限循环，没有任何仪表能看见它
+- **内核侧对照（u569 + 59/61 档仪表）**：`native_legacy_parent_match` 的本体是
+  `display->metaCast("IOMobileFramebufferLegacy") && metaCast("IOMobileFramebuffer") && metaCast("IOService")`
+  （`package/legacy-display/LegacyDisplayProbe.cpp:288`），两档实测 **`parent_match=1`**
+  ⇒ 被匹配的那个服务真在 `IOMobileFramebuffer` 类链上，`IOServiceMatching` 有候选
+- **CADisplay 空枚举闸已在显示档闭合**（u571 解 `_exit_records`，`out/probes/u571.txt`，
+  纯离线读现成 `gdb-stop.json`，不用重跑）：
+  | 档 | 崩溃环里的 SpringBoard | 结论 |
+  |---|---|---|
+  | `55-owned512`（**无** `--legacy-display`） | `p162 SpringBoard sig5 PC1bc4972ec LR1bc4972ec Ef2000000 +1d0b8000`，页偏移 `0x2ec` = u547 钉死的 `0x19f3df2ec`（`@"failed to find the main CADisplay"`，`brk #0`） | 死在 CADisplay 枚举 |
+  | `59-legacy-display-frame-runtime`（显示档，900 秒） | **全文命中 0 次**；最近三发全是 `liveactivitiesd sig5 PC1d687a4f8 LR1d687a4cc Ef2000001`（`brk #1`，去滑移 `0x1c18f64f8`，与 u465 那条 Swift 强制解包 nil 逐字相同） | 走过了那发 brk |
+  同一档屏上进程表 **`SpringBoard p26` / `backboardd p57` / `lsd p105` / `runningboardd p27` / `launchd p1` 全活**
+  ⇒ (B)(C)(D)(E)(F) 一并否掉：populate 线程跑了、first-match 交付了、表里有条目了
+- **当前闸重钉为「谁提交帧」，仪表语义已核对到源**（u572/u574/u575）：屏上那几行由
+  `package/boot-progress/BootProgress.c:356-364/387-391` 打印——
+  `SWAP calls`←`native_legacy_swap_validation_calls`、`COPY calls`←`native_legacy_transfer_calls`、
+  `retired`←`native_legacy_retirement_calls`、`HANDOFF calls`←`native_legacy_prepare_calls`、
+  `CLIENT calls`←`native_legacy_client_calls`。⚠ **屏上第一枚是 `SWAP` 不是 `MATCH`**（小字号读过一次，别照抄）。
+  `native_legacy_prepare_scanout()` **入口就无条件 `prepare_calls+=1`**（`LegacyDisplayProbe.cpp:84`），
+  所以 59 档 `prepare_calls=0` 而 `client_calls=4 pid=73` = **pid 73 只 open 了 user client，
+  一条 swap/transfer/handoff 选择子都没发**；`attempts` 只可能是 `calls≥1` 才有非零值
+- **判读件已按上面的结案改掉**：`tools-wsl/evaluate-legacy-display-gate.py` 的「服务属性面」段
+  不再输出那句被推翻的 (A) 判读，新增「交接面」行（`client_calls>0` 与 `prepare_calls=0` 并列判读，
+  `client_calls=0` 走另一条分支）；59/61 两档重跑 `rc=0`，见 `out/probes/u576.txt`
+- ⚠ **要加内核侧仪表别动 `LegacyDisplayProbe.cpp`**：`package/legacy-display/upstream.json:4-5`
+  把它的 `source_sha256` 钉成 `7f2d66b9…`，改了会砸 provenance；新计数器落到我们自己的文件里
+- 本轮新踩的码值坑：**`tbz`/`tbnz` 的立即数是 imm14** = `sxt((w>>5)&0x3FFF,14)*4`，
+  误按 21 位取会把跳转落点抬出约 2 MiB（u567 第一版 §1 的跳转址全错，
+  对 llvm-mc 的 `tbnz w10, #0, #28` = `0x370000EA` 才纠正）
+
 ### V 步：上游站点、收录与设备页（口径已核对到源码，别再靠 WebFetch 猜）
 
 `unixnu.com` 的**源就在 `UniXNU-main/docs/`**（VitePress，双语：`docs/` = en、`docs/zh/` = zh）。
@@ -843,6 +893,25 @@ z 前缀长度决定重放顺序，新补丁接在最长串后面。
   在注册那一刻已把属性序列化成 XML 存进去了，现在只挂了 `_length:4`），gate 停点 20-40 秒即可分辨 A/B。
   取证 `out/probes/u560.txt`..`u565.txt`（含 `u565b`/`u565c`）；坑见 U 步之十二末段（映射偏移、bl 纯 python 扫、
   `pick()` 不吃 u32、内联 WSL 引号）
+- ✅ **U 步之十二之二（(A)/(B) 判别结案 + CADisplay 闸闭合，2026-11-06）**：上面那句「闸收窄成两选一」
+  **已被 u567 反汇编推翻，两条都不是闸**——F2 里三枚属性（`dfr`/`AppleTV`/`external`，
+  `IORegistryEntrySearchCFProperty` on `"IOService"` plane = `IOKit+0x17bb0`）读到空**只清标志位**，
+  追加记录、kind 字节、取名与**枚数自增 `str w19,[0x1f4c500b8]` 全是无条件的**；
+  枚数留 0 的唯一出口是 `IOIteratorNext`（`IOKit+0x103d4`）返回空。`IOClass` 键缺席也正常（属性面在 gIODTPlane）。
+  u568 钉住匹配的是**类名**：F1 = `iomfb_populate_thread` 用
+  `IOServiceMatching("IOMobileFramebuffer")` + `"IOServiceFirstMatch"` 把 F2 注册成
+  `IOServiceAddMatchingNotification` 回调，任一步失败静默回到 `0x1b63dab34` 重试；
+  内核侧 `parent_match=1`（59/61 实测）证明被匹配的服务真在 `IOMobileFramebuffer` 类链上。
+  **闸闭合的硬证据（u571，纯离线解现成 `gdb-stop.json` 的 `_exit_records`，没重跑取证）**：
+  55 档（无 `--legacy-display`）崩溃环里 `p162 SpringBoard sig5 PC…2ec LR==PC brk #0 +1d0b8000`
+  = u547 那条 `@"failed to find the main CADisplay"`；**59 档（显示档）全文 SpringBoard 命中 0 次**、
+  最近三发全是 liveactivitiesd 的 Swift 强制解包 nil，且屏上 `SpringBoard p26`/`backboardd p57`/`lsd p105` 全活
+  ⇒ (B)(C)(D)(E)(F) 一并否掉，first-match 真交付、表里真有条目。
+  **当前闸回到「谁提交帧」并钉到仪表语义**（u572/u574/u575）：屏上第一枚是 `SWAP` 不是 `MATCH`；
+  `prepare_calls` 入口无条件自增 ⇒ 59 档 `client_calls=4 pid=73` 而 `prepare_calls=0`
+  = **pid 73 只开了 user client，一条 swap/transfer/handoff 选择子都没发**。
+  判读件那句 (A) 已改掉并新增「交接面」判读（59/61 重跑 `rc=0`，`out/probes/u576.txt`）。
+  取证 `out/probes/u567.txt`..`u576.txt`；新码值坑：`tbz`/`tbnz` 立即数是 **imm14**，按 21 位取会抬出约 2 MiB
 - ℹ️ **V 步口径已核对（2026-11-05）**：上游八步里我们 **1–5 全过、6 部分、7 host 全链过 + 真机只到菜单、8 未做**；
   **umi 页在上游站上已存在**（钉 `reAAAq/UniXNU-umi@3eb7257`，本地那棵树的头，`format=1` 手写 preserve 页，
   报的是**另一台 12 GiB** 到 Hello/Setup+touch）。要在设备页展示我们的项目 = 两条闸（`board.toml` 要有 `[components]`、

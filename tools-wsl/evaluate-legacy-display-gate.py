@@ -17,6 +17,7 @@
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -65,6 +66,9 @@ SIZES = {
     "native_legacy_object": (8, 8), "native_legacy_nub": (8, 8), "native_legacy_workloop": (8, 8),
     "native_legacy_video_base": (8, 8), "native_legacy_video_bytes": (8, 8),
     "native_legacy_gop_map": (8, 8), "native_legacy_properties_length": (4, 4),
+    # 注册那一刻整份属性 XML（char native_legacy_properties[4096]，LegacyDisplayProbe.cpp:73）
+    # ——CADisplay 枚举 A/B 判别的历史出处；结论以 u567 的反汇编为准（属性不影响枚数）
+    "native_legacy_properties": (4096, 1),
     "native_legacy_released": (4, 4), "native_legacy_probe_match": (4, 4),
 }
 
@@ -210,6 +214,55 @@ def main():
     else:
         print("   判读：还没件提交帧。gate 停点在 checkpoint（显示服务刚起），本就该是 0；"
               "要拿这面得用 runtime 长窗口档。")
+        print(f"   交接面：client_calls={val('native_legacy_client_calls')} "
+              f"pid={val('native_legacy_client_pid')} "
+              f"prepare_calls={val('native_legacy_prepare_calls')} "
+              f"transfer_calls={val('native_legacy_transfer_calls')}")
+        if val("native_legacy_client_calls"):
+            print("   native_legacy_prepare_scanout() 入口就无条件 prepare_calls+=1"
+                  "（LegacyDisplayProbe.cpp:84），所以 prepare_calls=0 = 这个函数一次都没被调过；"
+                  "client_calls>0 而它=0 → 件只开了 user client，没发起任何 swap/transfer/handoff 序列")
+        else:
+            print("   client_calls=0 → 还没有件开过 user client（gate 停点本就该如此，"
+                  "要判这面得用 runtime 长窗口档）")
+
+    print("\n== 服务属性面（CADisplay 枚举的 A/B 判别，u560/u565c 起、u567/u568 结案）==")
+    # native_legacy_properties 是 native_legacy_registration_observed() 在 registerService()
+    # 那一刻 serializeProperties(xml) 存下的整份 XML。
+    # u567 把这条判据的来源钉到指令：iomfb_match_callback（0x1b63dae70）对每枚匹配到的服务
+    # 读 dfr/AppleTV/external 三枚属性（IORegistryEntrySearchCFProperty(entry,"IOService",…,0)
+    # = IOKit+0x17bb0），读到空只是清 w22/w21 两个标志——追加记录（句柄 str、kind 的 csel、
+    # 名字 dfr/primary/"external-%d"）与枚数自增（str w19,[0x1f4c500b8]）都是无条件的；
+    # 唯一让枚数留 0 的出口是迭代器返回空（bl IOKit+0x103d4 → cbz w0,#832）。
+    # 所以「属性缺」不构成闸，旧判读那句「缺的属性就是 (A)」作废；IOClass 键缺席也正常
+    # （这份属性面挂在 gIODTPlane 上，本来就没有 IOClass）。
+    # u568 再钉 F1（0x1b63daab8）= iomfb_populate_thread：建迭代器句柄后用
+    # IOServiceMatching("IOMobileFramebuffer") + "IOServiceFirstMatch" 把这件回调注册上去，
+    # 任一步失败一律回到 0x1b63dab34 重试；59 档屏上 SpringBoard p26 活着、
+    # _exit_records 里 SpringBoard 命中 0 次 → 通知真交付、表里真有条目。
+    plen = val("native_legacy_properties_length")
+    blob = raw("native_legacy_properties", 4096)
+    text = ""
+    if blob:
+        cut = plen if isinstance(plen, int) and 0 < plen <= 4096 else 4096
+        text = blob[:cut].split(b"\0")[0].decode("utf-8", "replace")
+    need = ("dfr", "AppleTV", "external")
+    if not text:
+        print(f"  属性 XML = 空（length={plen}）→ registration_observed 没跑到，或缓冲没挂上读址")
+        print("   这一格先补读址 native_legacy_properties:4096，再谈 A/B")
+    else:
+        keys = re.findall(r"<key>([^<]+)</key>", text)
+        io_class = re.search(r"<key>IOClass</key>\s*<string>([^<]*)</string>", text)
+        print(f"  属性 XML = {len(text)} B，<key> 共 {len(keys)} 枚")
+        print(f"  IOClass = {io_class.group(1) if io_class else '（没有这个键，正常：属性面在 gIODTPlane）'}")
+        hit = [n for n in need if n in keys]
+        print(f"  F2 要的三枚：{', '.join(f'{n}={"有" if n in keys else "缺"}' for n in need)}")
+        print(f"  键表 = {', '.join(sorted(set(keys))[:48])}")
+        if len(hit) == len(need):
+            print("   判读：三枚全在场 → 记录取名走「有属性」那一支；枚数与追加本来就不看属性（u567）")
+        else:
+            print("   判读：缺的属性只决定记录取名与 kind 字节（dfr / primary / external-序号），"
+                  "不影响枚数——(A) 已由 u567 反汇编作废；闸在下面的帧提交面")
 
     print("\n== 分诊表（LegacyDisplayProbe.cpp 实读）==")
     stage = val("native_legacy_stage")
@@ -217,7 +270,7 @@ def main():
     print("   1 preModLoad / 2 GOP console 校验 / 3 display->init()"
           " / 4 IOSurface 到位并建 nub / 5 start(nub) / 6 失败收尾 / 7-8 release / 10 成功")
     if stage == 10:
-        print("   显示生命周期已走完成功路；retirement/copy/client 为 0 是「还没件提交帧」，不是失败")
+        print("   显示生命周期已走完成功路；retirement/copy/prepare 为 0 是「还没件提交帧」，不是失败")
     elif stage in (1, 2, 3):
         print("   停在早期趟：看 native_legacy_meta_status / PE_current_console 那串校验 / init_result")
     elif stage == 6:
